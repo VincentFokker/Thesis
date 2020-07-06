@@ -3,14 +3,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image
 import cv2
+from matplotlib.colors import ColorConverter
 
 class simple_conveyor():
 
+######## INITIALIZATION OF VARIABLES ###############################################################################################################
     def __init__(self, queues):
         """initialize states of the variables, the lists used"""
         #init queues
         self.queues = queues
         self.init_queues(self.queues)
+       
+        #init config
+        self.amount_of_gtps = 3
+        self.amount_of_outputs = 3
+        self.empty_env = self.generate_env(self.amount_of_gtps)
         
         #define where the operators of the GTP stations are
         self.operator_locations = [[4,12], [8,12], [12,12]]
@@ -23,9 +30,9 @@ class simple_conveyor():
         self.D3 = False
         
         #initialize output points
-        self.O1 = False #output of box size S 
-        self.O2 = False #output of box size M
-        self.O3 = False #output of box size L
+        self.O1 = 0 #output of box size S 
+        self.O2 = 0 #output of box size M
+        self.O3 = 0 #output of box size L
 
         # initialize transition points: 0=no transition, 1=transition
         ## CURRENTLY NOT USED ##
@@ -39,9 +46,6 @@ class simple_conveyor():
         # self.M3 = 0
 
         self.items_on_conv = []
-        self.queue1 = []
-        self.queue2 = []
-        self.queue3 = []
 
         #intialize variables for later usage
         self.O1_location = False
@@ -50,7 +54,31 @@ class simple_conveyor():
         
         self.carrier_type_map = np.zeros((13,31,1))
 
-    ## Some helper functions
+    def generate_env(self, no_of_gtp):
+        """returns empty env, with some variables about the size, lanes etc."""
+        empty = np.zeros((13, 19+4*no_of_gtp, 3))
+        for i in range(2,empty.shape[1]-2):
+            empty[2][i]=(255,255,255)   
+            empty[7][i]=(255,255,255)
+        for i in range(2,8):
+            empty[i][2]=(255,255,255)
+            empty[i][empty.shape[1]-2]=(255,255,255)
+        for i in range(8,empty.shape[0]): 
+            for j in range(4,no_of_gtp*4+1,4):
+                empty[i][j] = (255,255,255)
+                empty[i][j-1] = (250, 250,250)
+            for j in range(empty.shape[1]-12,empty.shape[1]-5,3):
+                empty[i][j] = (255,255,255)
+        for i in range(4,no_of_gtp*4+1, 4):
+            empty[7][i-1] = (255, 242, 229)
+            empty[7][i] = (255, 242, 229)
+
+        for i in range(empty.shape[1]-12,empty.shape[1]-5,3):
+            empty[7][i] = (255, 242, 229)
+
+        return empty
+
+###### HELPER FUNCTIONS ############################################################################################################################
     def get_candidate_lists(self, list_lists, x):
         """Returns all lists, starting with x in list of lists"""
         return [nestedlist for nestedlist in list_lists if nestedlist[0] == x]
@@ -90,8 +118,9 @@ class simple_conveyor():
     def simulate_operator_action(self):
         'processes an item at all the GTP stations, currently just accepts the item allways'
         self.items_on_conv = [sublist for sublist in self.items_on_conv if sublist[0] not in self.operator_locations]
-        
-            
+ ########################################################################################################################################################       
+ ## RESET FUNCTION 
+ #            
     def reset(self):
         "reset all the variables to zero, empty queues"
         self.D1 = False
@@ -99,74 +128,28 @@ class simple_conveyor():
         self.D3 = False
         
         #initialize output points
-        self.O1 = False #output of box size S 
-        self.O2 = False #output of box size M
-        self.O3 = False #output of box size L
+        self.O1 = 0 #output of box size S 
+        self.O2 = 0 #output of box size M
+        self.O3 = 0 #output of box size L
         
         #empty amount of items on conv.
         self.items_on_conv = []
-
-        #reset this var
-        self.O1_location = False
-        self.O2_location = False
-        self.O2_location = False
         
         self.carrier_type_map = np.zeros((13,31,1))
         self.init_queues(self.queues)
+        self.empty_env = self.generate_env(self.amount_of_gtps)
 
-    def set_step(self):
-        """For all items on the conveyor, do one step in designated direction"""
-        #do some step
-        for item in self.items_on_conv:
-                #check diverters; is any of them True and is there an order carrier? move into lane.
-                if item[0] == [12,7] and self.D1 == True:
-                    item[0][1] +=1
-                elif item[0] == [8,7] and self.D2 == True:
-                    item[0][1] +=1
-                elif item[0] == [4,7] and self.D3 == True:
-                    item[0][1] +=1
-                
-                #otherwise; all items set a step in their moving direction 
-                elif item[0][1] == 7 and item[0][0] > 2 and self.carrier_type_map[item[0][1]][item[0][0]-1] ==0: #if on the lower line, and not reached left corner:
-                    item[0][0] -=1                     #move left
-                elif item[0][0] ==2 and item[0][1] >2 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0: #if on left lane, and not reached top left corner:
-                    item[0][1] -=1                     #move up
-                elif item[0][1] == 2 and item[0][0] <28 and self.carrier_type_map[item[0][1]][item[0][0]+1] ==0: #if on the top lane, and not reached right top corner:
-                    item[0][0] +=1                      #Move right
-                elif item[0][0] == 28 and item[0][1] <7 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #if on right lane, and not reached right down corner:
-                    item[0][1] +=1
-                elif item[0][1] > 7 and item[0][1] < 12 and item[0][0] < 15 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0:
-                    item[0][1] +=1
-                elif item[0][1] > 7 and item[0][0] > 15 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0:
-                    item[0][1] -=1
+########################################################################################################################################################
+## STEP FUNCTION
+#
+    def step_env(self):
 
-        #update occupation-states of output points
-        if self.carrier_type_map[7][19] == 0:
-            self.O1_location = False
-        else:
-            self.O1_location = True
-            
-        if self.carrier_type_map[7][22] == 0:
-            self.O2_location = False
-        else:
-            self.O2_location = True
-            
-        if self.carrier_type_map[7][25] == 0:
-            self.O3_location = False
-        else:
-            self.O3_location = True
-
-    def perform_actions_in_space(self):
-        """Does 3 things:
-        1. Check if any diverters need to be toggled (based on demand at GTP)
-        2. Set a step for all items in the system in their designated direction
-        3. outputs any new order carrier at the output point when O1-On == True"""
-        
-        ## 1. ## check if any diverters need to be toggled
+####make carrier type map
         self.carrier_type_map = np.zeros((13,31,1))
         for item in self.items_on_conv:
-                self.carrier_type_map[item[0][1]][item[0][0]] = item[1]
-        
+            self.carrier_type_map[item[0][1]][item[0][0]] = item[1]
+
+####toggle diverters if needed
         #toggle D1 if needed:
         try:
             if self.carrier_type_map[7][12] == self.queue1[0] and len(self.queue1) >= self.len_longest_sublist(self.get_candidate_lists([self.queue1, self.queue2, self.queue3], self.carrier_type_map[7][12])):
@@ -196,62 +179,61 @@ class simple_conveyor():
                 self.D3 = False
         except:
             self.D3 = False
-            
-        ## 2. ## set step:
-        ## self.set_step()
-        
-        ## 3. ## output new order carrier(s)
-        #if satisfied; output carrier type 1
-        if self.O1 == True and self.carrier_type_map[7][20] == 0:
-            self.items_on_conv.append([[19,8], 1])
-            self.O1 = False                   #turn output off
-        
-        #if statisfied; output carrier type 2
-        elif self.O2 == True and self.carrier_type_map[7][23] == 0:
-            self.items_on_conv.append([[22,8], 2])
-            self.O2 = False                   #turn output off
-            
-        #if satisfied, output carrier type 3
-        elif self.O3 == True and self.carrier_type_map[7][26] == 0:
-            self.items_on_conv.append([[25,8], 3])
-            self.O3 = False                   #turn output off
 
-        ## 2. ## set step:
-        self.set_step()
+####Divert when at diverter, and diverter is set to true
+####Do step for all items on conv
+        for item in self.items_on_conv:
+            #check diverters; is any of them True and is there an order carrier? move into lane.
+            if item[0] == [12,7] and self.D1 == True:
+                item[0][1] +=1
+            elif item[0] == [8,7] and self.D2 == True:
+                item[0][1] +=1
+            elif item[0] == [4,7] and self.D3 == True:
+                item[0][1] +=1
+            
+            #otherwise; all items set a step in their moving direction 
+            elif item[0][1] == 7 and item[0][0] > 2 and self.carrier_type_map[item[0][1]][item[0][0]-1] ==0: #if on the lower line, and not reached left corner:
+                item[0][0] -=1                     #move left
+            elif item[0][0] ==2 and item[0][1] >2 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0: #if on left lane, and not reached top left corner:
+                item[0][1] -=1                     #move up
+            elif item[0][1] == 2 and item[0][0] <28 and self.carrier_type_map[item[0][1]][item[0][0]+1] ==0: #if on the top lane, and not reached right top corner:
+                item[0][0] +=1                      #Move right
+            elif item[0][0] == 28 and item[0][1] <7 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #if on right lane, and not reached right down corner:
+                item[0][1] +=1
+            elif item[0][1] > 7 and item[0][1] < 12 and item[0][0] < 15 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0:
+                item[0][1] +=1
+            elif item[0][1] > 7 and item[0][0] > 15 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0:
+                item[0][1] -=1
+
+        ####try to add new item from output when On!=0
+        if self.O1 !=0 and self.carrier_type_map[7][20] == 0:
+            self.items_on_conv.append([[19,7], 1])
+            self.O1 -=1
         
-        
-    def step_env(self, action):
-        """Step function for the environment, takes an action from the action-space as input"""
-        if   action==0: self.perform_actions_in_space() #set a step for all items
-        elif action==1: self.D1 = not self.D1 #toggle D1
-        elif action==2: self.D2 = not self.D2 #Toggle D2
-        elif action==3: self.D3 = not self.D3 #Toggle D3
-        elif action==4: self.O1 = not self.O1 #toggle O1
-        elif action==5: self.O2 = not self.O2 #toggle O2
-        elif action==6: self.O3 = not self.O3 #toggle O3
-    
+        elif self.O2 !=0 and self.carrier_type_map[7][23] == 0:
+            self.items_on_conv.append([[22,7], 2])
+            self.O2 -=1
+
+        elif self.O3 !=0 and self.carrier_type_map[7][26] == 0:
+            self.items_on_conv.append([[25,7], 3])
+            self.O3 -=1
+
     def step(self, action):
         if action==0:
-            self.step_env(0)
-        elif action ==1:
-            self.step_env(4)
-            self.step_env(0)
+            self.step_env()
+        elif action ==1: 
+            self.O1 +=1
+            self.step_env()
         elif action ==2:
-            self.step_env(5)
-            self.step_env(0)
-        elif action ==3: 
-            self.step_env(6)
-            self.step_env(0)
+            self.O2 +=1
+            self.step_env()
+        elif action ==3:
+            self.O3 +=1
+            self.step_env()
 
-            
-        # return next_state, reward, terminate, info
+   
 
-        #todo:
-        # - Fix returns
-        # - build reward function
-        # - termination criteria
-        # - additional info
-
+################## RENDER FUNCTIONS ################################################################################################
     def render_plt(self):
         """Simple render function, uses matplotlib to render the image + some additional information on the transition points"""
         print('items on conveyor:')
@@ -278,7 +260,7 @@ class simple_conveyor():
         plt.imshow(np.asarray(image))
         plt.show()
     
-    def render(self):
+    def render1(self):
         """render with opencv, for faster processing"""
         df = pd.read_csv('representation3.csv', delimiter=';', ).fillna(0)
         listoflists = df.values.tolist()
@@ -286,13 +268,28 @@ class simple_conveyor():
 
         for item in self.items_on_conv:
             image[item[0][1]][item[0][0]] = np.asarray([(255, 213, 171) if item[1] ==1 else (235, 151, 136) if item[1] ==2 else (183, 71, 42)]) 
-        
+    
+
         #resize with PIL
         im = Image.fromarray(np.uint8(image))
-        img = im.resize((600,240), Image.BOX)
+        img = im.resize((600,240), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.1", np.array(img))
         cv2.waitKey(0)
 
+    def render(self):
+        """render with opencv, for faster processing"""
+        image = self.generate_env(self.amount_of_gtps)
+
+        for item in self.items_on_conv:
+            image[item[0][1]][item[0][0]] = np.asarray([(255, 213, 171) if item[1] ==1 else (235, 151, 136) if item[1] ==2 else (183, 71, 42)]) 
+
+        #resize with PIL
+        im = Image.fromarray(np.uint8(image))
+        img = im.resize((600,240), resample=Image.BOX) #BOX for no anti-aliasing)
+        cv2.imshow("Simulation-v0.1", np.array(img))
+        cv2.waitKey(0)
+
+############### MAIN ##############################################################################################################################################
 
 ## Test the item
 queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
@@ -314,7 +311,7 @@ env.reset()
 for item in order_list:
     env.step(item)
     env.render()
-    for _ in range(8):
+    for _ in range(2):
         env.step(0)
         env.render()
 
