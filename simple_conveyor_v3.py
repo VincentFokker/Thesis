@@ -322,7 +322,6 @@ for item in order_list:
     
 while env.queue1 + env.queue2 + env.queue3 != []:
     env.step(0)
-    env.render()
     if cv2.waitKey(25) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
         break
