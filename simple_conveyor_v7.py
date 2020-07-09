@@ -158,16 +158,7 @@ class simple_conveyor():
             #print('Carrier type map value :', carrier_map[loc2[1]][loc2[0]])
             #print('next up item in queue :', queues_local[d_locs.index(loc2)][0])
             try:
-                condition_1 = carrier_map[loc2[1]][loc2[0]] == self.init_queues[d_locs.index(loc2)][0]
-                print('condition 1 = ',condition_1)
-                # candidate = self.get_candidate_lists(queues_local, carrier_map[loc2[1]][loc2[0]])
-                # longest_sub = self.len_longest_sublist(candidate)
-                # print(longest_sub)
-                # current_len = len(queues_local[d_locs.index(loc2)])
-                # print(current_len)
-                condition_2 = len(queues_local[d_locs.index(loc2)]) >= self.len_longest_sublist(self.get_candidate_lists(queues_local, carrier_map[loc2[1]][loc2[0]]))
-                print('condition 2 = ',condition_2)
-                if condition_1: # and condition_2: 
+                if carrier_map[loc2[1]][loc2[0]] == self.init_queues[d_locs.index(loc2)][0]: #and len(self.init_queues[d_locs.index(loc2)]) >= self.len_longest_sublist(self.get_candidate_lists(self.init_queues, carrier_map[loc2[1]][loc2[0]])): 
                     self.D_states[d_locs.index(loc2)+1] = True
                     print("set diverter state for diverter {} to TRUE".format(d_locs.index(loc2)+1))
                     self.remove_from_queue(d_locs.index(loc2)+1)
@@ -289,16 +280,16 @@ class simple_conveyor():
 
         #resize with PIL
         im = Image.fromarray(np.uint8(image))
-        img = im.resize((600,240), resample=Image.BOX) #BOX for no anti-aliasing)
+        img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.1", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
-        cv2.waitKey(0)
+        cv2.waitKey(25)
 
 ############### MAIN ##############################################################################################################################################
 
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 5
-amount_output = 4
+amount_gtp = 6
+amount_output = 3
 buffer_size = 5
 queues = [[randint(1,amount_output) for i in range(buffer_size)] for item in range(amount_gtp)] # generate random queues
 print(queues)
@@ -329,6 +320,6 @@ for item in order_list:
 while env.init_queues != [[] * i for i in range(amount_gtp)]:
     env.step(0)
     env.render()
-    if cv2.waitKey(25) & 0xFF == ord('q'):
-        cv2.destroyAllWindows()
-        break
+    # if cv2.waitKey(25) & 0xFF == ord('q'):
+    #     cv2.destroyAllWindows()
+    #     break
