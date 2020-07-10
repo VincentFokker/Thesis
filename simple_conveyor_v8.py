@@ -1,5 +1,5 @@
 #########################################################################
-# Version: 7                                                            #
+# Version: 8                                                            #
 # Feature: Scaleable version with gready approach to GTP allocation     #
 
 
@@ -12,6 +12,8 @@ from matplotlib.colors import ColorConverter
 from copy import copy
 from random import randint
 import seaborn as sns
+import random
+
 
 class simple_conveyor():
 
@@ -21,6 +23,7 @@ class simple_conveyor():
         #init queues
         self.queues = queues
         self.init_queues = self.queues
+        self.demand_queues = copy(self.queues)
         self.in_queue = [[] for item in range(len(queues))]
 
 
@@ -28,20 +31,28 @@ class simple_conveyor():
         #init config
         self.amount_of_gtps = amount_gtp
         self.amount_of_outputs = amount_output
-        self.empty_env = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
+        self.exception_occurence = 0.05        # % of the times, an exception occurs
+        self.process_time_at_GTP = 45          # takes 30 timesteps
+
+        self.reward = 0.0
+        self.terminate = False
 
         #colors
         self.pallette = (np.asarray(sns.color_palette("Reds", self.amount_of_outputs)) * 255).astype(int)
 
+        # build env
+        self.empty_env = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
+
         #define where the operators, diverts and outputs of the GTP stations are
-        self.operator_locations = [[i, 12] for i in range(4,self.amount_of_gtps*4+1,4)][::-1]
-        #self.output_locations = [[self.empty_env.shape[1]-i*3-6,7]for i in range(self.amount_of_outputs)][::-1]
+        self.operator_locations = [[i, self.empty_env.shape[0]-1] for i in range(4,self.amount_of_gtps*4+1,4)][::-1]
         self.output_locations = [[i,7]for i in range(self.empty_env.shape[1]-self.amount_of_outputs*2-1,self.empty_env.shape[1]-2,2)]
         self.diverter_locations = [[i, 7] for i in range(4,self.amount_of_gtps*4+1,4)][::-1]
-        
+        self.merge_locations = [[i-1, 7] for i in range(4,self.amount_of_gtps*4+1,4)][::-1]
         print("operator locations: ", self.operator_locations)
         print("output locations: ", self.output_locations)
         print("diverter locations: ", self.diverter_locations)
+        print("Merge locations: ", self.merge_locations)
+
         #initialize divert points: False=no diversion, True=diversion
         self.D_states = {}
         for i in range(1,len(self.diverter_locations)+1):
@@ -50,21 +61,30 @@ class simple_conveyor():
         #initialize output points
         self.O_states = {}
         for i in range(1,len(self.output_locations)+1):
-            self.D_states[i] = 0
+            self.O_states[i] = 0
 
         # initialize transition points: 0=no transition, 1=transition
-        ## CURRENTLY NOT USED ##
-        # T_states = {}
-        # for i in range(1,len(self.diverter_locations)+1):
-        #     T_states[i] = False
+        self.T_states = {}
+        for i in range(1,len(self.operator_locations)+1):
+            self.T_states[i] = False
 
-        # #initialize merge points
-        # M_states = {}
-        # for i in range(1,len(self.diverter_locations)+1):
-        #     M_states[i] = False
+        #initialize merge points
+        self.M_states = {}
+        for i in range(1,len(self.merge_locations)+1):
+            self.M_states[i] = False
 
+####### FOR SIMULATION ONLY 
+        self.W_times = {}
+        for i in range(1,len(self.operator_locations)+1):
+            self.W_times[i] = self.process_time_at_GTP + 145 + randint(-10, 10)
+        print("Process times at operator are:", self.W_times)
+####### FOR SIMULATION ONLY
+
+        #initialize conveyor memory
         self.items_on_conv = []        
         self.carrier_type_map = np.zeros((self.empty_env.shape[0],self.empty_env.shape[1],1))
+
+#### Generate the visual conveyor ##########################################################################################################
 
     def generate_env(self, no_of_gtp, no_of_output):
         """returns empty env, with some variables about the size, lanes etc."""
@@ -88,6 +108,11 @@ class simple_conveyor():
 
         for i in range(empty.shape[1]-no_of_output*2-1,empty.shape[1]-2,2):       #output points
             empty[7][i] = (255, 242, 229)
+        
+        for i in range(8,empty.shape[0],1):                                     #order carriers available in lanes
+            for j in range(empty.shape[1]-no_of_output*2-1,empty.shape[1]-2,2):
+                x= empty.shape[1]-no_of_output*2-1
+                empty[i][j] = self.pallette[int((j-x)*0.5)]
 
         return empty
 
@@ -141,13 +166,76 @@ class simple_conveyor():
         for i in range(1,len(self.output_locations)+1):
             self.O_states[i] = 0
         
+        # initialize transition points: 0=no transition, 1=transition
+        self.T_states = {}
+        for i in range(1,len(self.operator_locations)+1):
+            self.T_states[i] = False
+
+        #initialize merge points
+        self.M_states = {}
+        for i in range(1,len(self.merge_locations)+1):
+            self.M_states[i] = False
+
+####### FOR SIMULATION ONLY 
+        self.W_times = {}
+        for i in range(1,len(self.operator_locations)+1):
+            self.W_times[i] = self.process_time_at_GTP + 145 + randint(-10, 10)
+        print("Process times at operator are:", self.W_times)
+####### FOR SIMULATION ONLY
+
         #empty amount of items on conv.
         self.items_on_conv = []
         
         
         self.init_queues = self.queues
+        self.demand_queues = copy(self.queues)
+        self.in_queue = [[] for item in range(len(self.queues))]
         self.empty_env = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
         self.carrier_type_map = np.zeros((self.empty_env.shape[0],self.empty_env.shape[1],1))
+
+########################################################################################################################################################
+## PROCESSING OF ORDER CARRIERS AT GTP
+# 
+    def process_at_GTP(self):
+        # for each step; check if it needed to process an order carrier at GTP
+        O_locs = copy(self.operator_locations)
+        for Transition_point in O_locs:
+            if self.W_times[O_locs.index(Transition_point)+1] == 0:
+                print('Waiting time at GTP {} is 0, check done on correctness:'.format(O_locs.index(Transition_point)+1))
+                if random.random() < self.exception_occurence: #if the random occurence is below 0.02 (with a change of 2%) do:
+                    #move order carrier at transition point to the merge lane
+                    print('not the right order carrier, move to merge lane')
+                    for item  in self.items_on_conv:
+                        if item[0] == Transition_point:
+                            item[0][0] -=1
+                    
+                else:
+                    #remove the order form the items_on_conv
+                    print('right order carrier is at GTP (location: {}'.format(Transition_point))
+                    print('conveyor memory before processing: ', self.items_on_conv)
+                    self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
+                    print('order at GTP {} processed'.format(O_locs.index(Transition_point)+1))
+                    print('conveyor memory after processing: ', self.items_on_conv)
+
+                #set new timestep for the next order
+                self.W_times[O_locs.index(Transition_point)+1] = self.process_time_at_GTP if "carrier_type_-1" == 1 else self.process_time_at_GTP+10 if "carrier_type_-1" == 2 else self.process_time_at_GTP+20 if "carrier_type_-1" == 3 else self.process_time_at_GTP+30 if "carrier_type_-1" == 4 else self.process_time_at_GTP+40
+                print('new timestep set')
+
+                #remove from in_queue when W_times is 0
+                try:
+                    #remove item from the In_que list
+                    self.in_queue[O_locs.index(Transition_point)] = self.in_queue[O_locs.index(Transition_point)][1:]
+                    print('item removed from in-que')
+                except:
+                    print("Except: queue was already empty!")
+            elif self.W_times[O_locs.index(Transition_point)+1] < 0:
+                self.W_times[O_locs_locations.index(Transition_point)+1] = 0
+                print("Waiting time was below 0, reset to 0")
+            else:
+                self.W_times[O_locs.index(Transition_point)+1] -= 1 #decrease timestep with 1
+                print('waiting time decreased with 1 time instance')
+                print('waiting time at GTP{} is {}'.format(O_locs.index(Transition_point)+1, self.W_times[O_locs.index(Transition_point)+1]))
+            
 
 ########################################################################################################################################################
 ## STEP FUNCTION
@@ -159,27 +247,26 @@ class simple_conveyor():
         for item in self.items_on_conv:
             self.carrier_type_map[item[0][1]][item[0][0]] = item[1]
 
+#### Process the orders at GTP > For simulation: do incidental transfer of order carrier
+        self.process_at_GTP()
+
 ####toggle diverters if needed
         #toggle All D_states if needed:
         d_locs = copy(self.diverter_locations)
         carrier_map = copy(self.carrier_type_map)
-        queues_local = copy(self.init_queues)
         for loc2 in d_locs:
-            #print('Carrier type map value :', carrier_map[loc2[1]][loc2[0]])
-            #print('next up item in queue :', queues_local[d_locs.index(loc2)][0])
             try:
                 #Condition 1 = if the carrier type at any of the diverter locations is EQUAL TO the next-up requested carrier type at GTP request lane of this specific diverter location
                 condition_1 = carrier_map[loc2[1]][loc2[0]] == self.init_queues[d_locs.index(loc2)][0]
-                #Condition 2 = if the length of the queue concurrent to the position of the diverter is LONGER OR EQUAL TO the lenght of the longest queue that also requests the same order carrier
-                #condition_2 = len(self.init_queues[d_locs.index(loc2)]) >= self.len_longest_sublist(self.get_candidate_lists(self.init_queues, carrier_map[loc2[1]][loc2[0]]))
-                #OR condition 2 = if the lenght of the in_queue is <= smallest queue that also demands order carrier of the same type
+                #condition 2 = if the lenght of the in_queue is <= smallest queue that also demands order carrier of the same type
                 condition_2 = len(self.in_queue[d_locs.index(loc2)]) <= min(map(len, self.in_queue)) 
                 if condition_1 and condition_2: 
                     self.D_states[d_locs.index(loc2)+1] = True
                     print("set diverter state for diverter {} to TRUE".format(d_locs.index(loc2)+1))
                     self.remove_from_queue(d_locs.index(loc2)+1)
                     print("request removed from demand queue")
-                    self.add_to_in_que(d_locs.index(loc2),carrier_map[loc2[1]][loc2[0]])
+                    self.add_to_in_que(d_locs.index(loc2),int(carrier_map[loc2[1]][loc2[0]]))
+                    print("Order carrier added to GTP queue")
 
                 else:
                     self.D_states[d_locs.index(loc2)+1] = False
@@ -188,13 +275,10 @@ class simple_conveyor():
                 print('Index error: queues are empty?')
                 self.D_states[d_locs.index(loc2)+1] = False
             except:
-                print('other error')
+                print('Another error occurred; this should not happen! Investigate the cause!')
                 self.D_states[d_locs.index(loc2)+1] = False
 
-#### Toggle diverters 2
-        # for cord0 in self.diverter_locations:
-        #     dcord = copy(cord0)
-        #     if self.carrier_type_map[dcord[1]][dcord[0]] == self.init_queues[self.diverter_locations.index(dcord)][0]:
+
 
         
 
@@ -225,10 +309,12 @@ class simple_conveyor():
             elif item[0][0] == self.empty_env.shape[1]-2 and item[0][1] <7 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #if on right lane, and not reached right down corner:
                 item[0][1] +=1
                 print('item {} moved down'.format(item[0]))
-            elif item[0][1] > 7 and item[0][1] < self.empty_env.shape[0]-1 and item[0][0] < self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #move down into lane
+            elif item[0][1] > 7 and item[0][0] in [lane[0] for lane in self.diverter_locations] and item[0][1] < self.empty_env.shape[0]-1 and item[0][0] < self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #move down into lane
                 item[0][1] +=1
                 print('item {} moved into lane'.format(item[0]))
-            elif item[0][1] > 7 and item[0][0] > self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0:
+            elif item[0][1] > 7 and item[0][0] in [lane[0] for lane in self.merge_locations] and item[0][0] < self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]-1][item[0][0]+1] ==0: #move up into merge lane
+                item[0][1] -=1
+            elif item[0][1] > 7 and item[0][0] > self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0: #move up if on output lane
                 item[0][1] -=1
                 print('item {} moved onto conveyor'.format(item[0]))
 
@@ -242,6 +328,15 @@ class simple_conveyor():
                 print("Items on conveyor: ", self.items_on_conv)
             else:
                 print('No order carrier output on output {} .'.format(loc))
+
+    def make_observation(self):
+        '''Builds the observation from the available variables'''
+        in_que = [int(item) for sublist in self.in_queue for item in sublist]
+        demand_que = [int(item) for sublist in self.demand_queues for item in sublist]
+        carrier_map = [int(val) for val in self.carrier_type_map.reshape(self.carrier_type_map.shape[0] * self.carrier_type_map.shape[1],1,1)]
+
+        obs = in_que + demand_que + carrier_map
+        return obs
 
     def step(self, action):
         if action==0:
@@ -273,8 +368,15 @@ class simple_conveyor():
 
         print("states of O: ",self.O_states)
         print('init queues :', self.init_queues)
+        print('conveyor memory : ', self.items_on_conv)
         print('')
         print('--------------------------------------------------------------------------------------------------------------------')
+
+        next_state = self.make_observation()
+        reward = self.reward
+        terminate = self.terminate
+        info = ''
+        return next_state, reward, terminate, info
 
    
 
@@ -307,15 +409,16 @@ class simple_conveyor():
         im = Image.fromarray(np.uint8(image))
         img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.1", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
-        cv2.waitKey(10)
+        cv2.waitKey(25)
+    
 
 ############### MAIN ##############################################################################################################################################
 
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 15
+amount_gtp = 3
 amount_output = 5
-buffer_size = 5
+buffer_size = 100
 queues = [[randint(1,amount_output) for i in range(buffer_size)] for item in range(amount_gtp)] # generate random queues
 print(queues)
 env = simple_conveyor(queues, amount_gtp, amount_output)
@@ -342,9 +445,6 @@ for item in order_list:
 
 
     
-while env.init_queues != [[] * i for i in range(amount_gtp)]:
+while env.in_queue != [[] * i for i in range(amount_gtp)]:
     env.step(0)
     env.render()
-    # if cv2.waitKey(25) & 0xFF == ord('q'):
-    #     cv2.destroyAllWindows()
-    #     break
