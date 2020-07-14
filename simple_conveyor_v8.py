@@ -32,7 +32,7 @@ class simple_conveyor():
         self.amount_of_gtps = amount_gtp
         self.amount_of_outputs = amount_output
         self.exception_occurence = 0.05        # % of the times, an exception occurs
-        self.process_time_at_GTP = 45          # takes 30 timesteps
+        self.process_time_at_GTP = 6          # takes 30 timesteps
 
         self.reward = 0.0
         self.terminate = False
@@ -336,7 +336,7 @@ class simple_conveyor():
         carrier_map = [int(val) for val in self.carrier_type_map.reshape(self.carrier_type_map.shape[0] * self.carrier_type_map.shape[1],1,1)]
 
         obs = in_que + demand_que + carrier_map
-        return obs
+        return np.array(obs)
 
     def step(self, action):
         if action==0:
@@ -409,15 +409,15 @@ class simple_conveyor():
         im = Image.fromarray(np.uint8(image))
         img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.1", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
-        cv2.waitKey(25)
+        cv2.waitKey(0)
     
 
 ############### MAIN ##############################################################################################################################################
 
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 3
-amount_output = 5
+amount_gtp = 10
+amount_output = 3
 buffer_size = 100
 queues = [[randint(1,amount_output) for i in range(buffer_size)] for item in range(amount_gtp)] # generate random queues
 print(queues)
