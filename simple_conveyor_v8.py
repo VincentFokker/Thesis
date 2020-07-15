@@ -32,7 +32,7 @@ class simple_conveyor():
         self.amount_of_gtps = amount_gtp
         self.amount_of_outputs = amount_output
         self.exception_occurence = 0.05        # % of the times, an exception occurs
-        self.process_time_at_GTP = 6          # takes 30 timesteps
+        self.process_time_at_GTP = 35          # takes 30 timesteps
 
         self.reward = 0.0
         self.terminate = False
@@ -76,7 +76,7 @@ class simple_conveyor():
 ####### FOR SIMULATION ONLY 
         self.W_times = {}
         for i in range(1,len(self.operator_locations)+1):
-            self.W_times[i] = self.process_time_at_GTP + 145 + randint(-10, 10)
+            self.W_times[i] = self.process_time_at_GTP + 200 + randint(-10, 10)
         print("Process times at operator are:", self.W_times)
 ####### FOR SIMULATION ONLY
 
@@ -409,14 +409,14 @@ class simple_conveyor():
         im = Image.fromarray(np.uint8(image))
         img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.1", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
-        cv2.waitKey(0)
+        cv2.waitKey(25)
     
 
 ############### MAIN ##############################################################################################################################################
 
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 10
+amount_gtp = 15
 amount_output = 3
 buffer_size = 100
 queues = [[randint(1,amount_output) for i in range(buffer_size)] for item in range(amount_gtp)] # generate random queues
