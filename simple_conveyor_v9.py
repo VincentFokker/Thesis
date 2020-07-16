@@ -1,6 +1,8 @@
 #########################################################################
-# Version: 8                                                            #
+# Version: 9                                                            #
 # Feature: Scaleable version with gready approach to GTP allocation     #
+# Includes a reward function and state obs
+# run with > python simple_conveyor_v9.py
 
 
 import numpy as np
@@ -13,7 +15,10 @@ from copy import copy
 from random import randint
 import seaborn as sns
 import random
+import logging
 
+#CHANGE LOGGING SETTINGS HERE: #INFO; showing all print statements
+logging.basicConfig(level=logging.INFO)
 
 class simple_conveyor():
 
@@ -48,10 +53,10 @@ class simple_conveyor():
         self.output_locations = [[i,7]for i in range(self.empty_env.shape[1]-self.amount_of_outputs*2-1,self.empty_env.shape[1]-2,2)]
         self.diverter_locations = [[i, 7] for i in range(4,self.amount_of_gtps*4+1,4)][::-1]
         self.merge_locations = [[i-1, 7] for i in range(4,self.amount_of_gtps*4+1,4)][::-1]
-        print("operator locations: ", self.operator_locations)
-        print("output locations: ", self.output_locations)
-        print("diverter locations: ", self.diverter_locations)
-        print("Merge locations: ", self.merge_locations)
+        logging.debug("operator locations: {}".format(self.operator_locations))
+        logging.debug("output locations: {}".format( self.output_locations))
+        logging.debug("diverter locations: {}".format( self.diverter_locations))
+        logging.debug("Merge locations: {}".format(self.merge_locations))
 
         #initialize divert points: False=no diversion, True=diversion
         self.D_states = {}
@@ -77,7 +82,7 @@ class simple_conveyor():
         self.W_times = {}
         for i in range(1,len(self.operator_locations)+1):
             self.W_times[i] = self.process_time_at_GTP + 150+8*self.amount_of_gtps + randint(-10, 10)
-        print("Process times at operator are:", self.W_times)
+        logging.debug("Process times at operator are:{}".format(self.W_times))
 ####### FOR SIMULATION ONLY
 
         #initialize conveyor memory
@@ -180,7 +185,7 @@ class simple_conveyor():
         self.W_times = {}
         for i in range(1,len(self.operator_locations)+1):
             self.W_times[i] = self.process_time_at_GTP + 150 + 8*self.amount_of_gtps  + randint(-10, 10)
-        print("Process times at operator are:", self.W_times)
+        logging.debug("Process times at operator are: {}".format(self.W_times))
 ####### FOR SIMULATION ONLY
 
         #empty amount of items on conv.
@@ -201,21 +206,22 @@ class simple_conveyor():
         O_locs = copy(self.operator_locations)
         for Transition_point in O_locs:
             if self.W_times[O_locs.index(Transition_point)+1] == 0:
-                print('Waiting time at GTP {} is 0, check done on correctness:'.format(O_locs.index(Transition_point)+1))
+                logging.debug('Waiting time at GTP {} is 0, check done on correctness:'.format(O_locs.index(Transition_point)+1))
                 if random.random() < self.exception_occurence: #if the random occurence is below exception occurence (set in config) do:
                     #move order carrier at transition point to the merge lane
-                    print('not the right order carrier, move to merge lane')
+                    logging.debug('not the right order carrier, move to merge lane')
                     for item  in self.items_on_conv:
                         if item[0] == Transition_point:
                             item[0][0] -=1
                     
                 else:
                     #remove the order form the items_on_conv
-                    print('right order carrier is at GTP (location: {}'.format(Transition_point))
-                    print('conveyor memory before processing: ', self.items_on_conv)
+                    logging.debug('right order carrier is at GTP (location: {}'.format(Transition_point))
+                    logging.debug('conveyor memory before processing: {}'.format(self.items_on_conv))
                     self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
-                    print('order at GTP {} processed'.format(O_locs.index(Transition_point)+1))
-                    print('conveyor memory after processing: ', self.items_on_conv)
+                    self.reward += 10 + 10 + (self.amount_of_gtps * 4)/2
+                    logging.debug('order at GTP {} processed'.format(O_locs.index(Transition_point)+1))
+                    logging.debug('conveyor memory after processing: {}'.format(self.items_on_conv))
 
                 #set new timestep for the next order
                 try: 
@@ -223,22 +229,22 @@ class simple_conveyor():
                 except:
                     next_type = 99
                 self.W_times[O_locs.index(Transition_point)+1] = self.process_time_at_GTP if next_type == 1 else self.process_time_at_GTP+18 if next_type == 2 else self.process_time_at_GTP+36 if next_type == 3 else self.process_time_at_GTP+51 if next_type == 4 else self.process_time_at_GTP+72
-                print('new timestep set')
+                logging.debug('new timestep set')
 
                 #remove from in_queue when W_times is 0
                 try:
                     #remove item from the In_que list
                     self.in_queue[O_locs.index(Transition_point)] = self.in_queue[O_locs.index(Transition_point)][1:]
-                    print('item removed from in-que')
+                    logging.debug('item removed from in-que')
                 except:
-                    print("Except: queue was already empty!")
+                    logging.debug("Except: queue was already empty!")
             elif self.W_times[O_locs.index(Transition_point)+1] < 0:
                 self.W_times[O_locs_locations.index(Transition_point)+1] = 0
-                print("Waiting time was below 0, reset to 0")
+                logging.debug("Waiting time was below 0, reset to 0")
             else:
                 self.W_times[O_locs.index(Transition_point)+1] -= 1 #decrease timestep with 1
-                print('waiting time decreased with 1 time instance')
-                print('waiting time at GTP{} is {}'.format(O_locs.index(Transition_point)+1, self.W_times[O_locs.index(Transition_point)+1]))
+                logging.debug('waiting time decreased with 1 time instance')
+                logging.debug('waiting time at GTP{} is {}'.format(O_locs.index(Transition_point)+1, self.W_times[O_locs.index(Transition_point)+1]))
             
 
 ########################################################################################################################################################
@@ -251,6 +257,8 @@ class simple_conveyor():
         for item in self.items_on_conv:
             self.carrier_type_map[item[0][1]][item[0][0]] = item[1]
             item[2] +=1
+        
+        self.reward -= len(self.items_on_conv)
 
 #### Process the orders at GTP > For simulation: do incidental transfer of order carrier
         self.process_at_GTP()
@@ -267,20 +275,20 @@ class simple_conveyor():
                 condition_2 = len(self.in_queue[d_locs.index(loc2)]) <= min(map(len, self.in_queue)) 
                 if condition_1 and condition_2: 
                     self.D_states[d_locs.index(loc2)+1] = True
-                    print("set diverter state for diverter {} to TRUE".format(d_locs.index(loc2)+1))
+                    logging.debug("set diverter state for diverter {} to TRUE".format(d_locs.index(loc2)+1))
                     self.remove_from_queue(d_locs.index(loc2)+1)
-                    print("request removed from demand queue")
+                    logging.debug("request removed from demand queue")
                     self.add_to_in_que(d_locs.index(loc2),int(carrier_map[loc2[1]][loc2[0]]))
-                    print("Order carrier added to GTP queue")
+                    logging.debug("Order carrier added to GTP queue")
 
                 else:
                     self.D_states[d_locs.index(loc2)+1] = False
-                    print("Divert-set requirement not met at cord :", loc2)
+                    logging.debug("Divert-set requirement not met at cord {}".format(loc2))
             except IndexError:
-                print('Index error: queues are empty?')
+                logging.debug('Index error: queues are empty!')
                 self.D_states[d_locs.index(loc2)+1] = False
             except:
-                print('Another error occurred; this should not happen! Investigate the cause!')
+                logging.warning('Another error occurred; this should not happen! Investigate the cause!')
                 self.D_states[d_locs.index(loc2)+1] = False
 
 
@@ -295,33 +303,33 @@ class simple_conveyor():
                 try:
                     if self.D_states[self.diverter_locations.index(item[0])+1] == True and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0:
                         item[0][1] +=1
-                        print("moved order carrier into GTP lane {}".format(self.diverter_locations.index(loc1)+1))
+                        logging.debug("moved order carrier into GTP lane {}".format(self.diverter_locations.index(loc1)+1))
                     else:
                         item[0][0] -=1 
                 except:
-                    print("Item of size {} not moved into lane: Divert value not set to true".format(item[1])) 
+                    logging.debug("Item of size {} not moved into lane: Divert value not set to true".format(item[1])) 
 
             #otherwise; all items set a step in their moving direction 
             elif item[0][1] == 7 and item[0][0] > 1 and self.carrier_type_map[item[0][1]][item[0][0]-1] ==0: #if on the lower line, and not reached left corner:
                 item[0][0] -=1                     #move left
-                print('item {} moved left'.format(item[0]))
+                logging.debug('item {} moved left'.format(item[0]))
             elif item[0][0] ==1 and item[0][1] >2 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0: #if on left lane, and not reached top left corner:
                 item[0][1] -=1
-                print('item {} moved up'.format(item[0]))                    #move up
+                logging.debug('item {} moved up'.format(item[0]))                    #move up
             elif item[0][1] == 2 and item[0][0] < self.empty_env.shape[1]-2 and self.carrier_type_map[item[0][1]][item[0][0]+1] ==0: #if on the top lane, and not reached right top corner:
                 item[0][0] +=1                      #Move right
-                print('item {} moved right'.format(item[0]))
+                logging.debug('item {} moved right'.format(item[0]))
             elif item[0][0] == self.empty_env.shape[1]-2 and item[0][1] <7 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #if on right lane, and not reached right down corner:
                 item[0][1] +=1
-                print('item {} moved down'.format(item[0]))
+                logging.debug('item {} moved down'.format(item[0]))
             elif item[0][1] > 7 and item[0][0] in [lane[0] for lane in self.diverter_locations] and item[0][1] < self.empty_env.shape[0]-1 and item[0][0] < self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #move down into lane
                 item[0][1] +=1
-                print('item {} moved into lane'.format(item[0]))
+                logging.debug('item {} moved into lane'.format(item[0]))
             elif item[0][1] > 7 and item[0][0] in [lane[0] for lane in self.merge_locations] and item[0][0] < self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]-1][item[0][0]+1] ==0: #move up into merge lane
                 item[0][1] -=1
             elif item[0][1] > 7 and item[0][0] > self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0: #move up if on output lane
                 item[0][1] -=1
-                print('item {} moved onto conveyor'.format(item[0]))
+                logging.debug('item {} moved onto conveyor'.format(item[0]))
 
         ####try to add new item from output when On!=0
         for cord2 in self.output_locations:
@@ -329,10 +337,10 @@ class simple_conveyor():
             if self.O_states[self.output_locations.index(loc)+1] !=0 and self.carrier_type_map[cord2[1]][cord2[0]+1] ==0:
                 self.items_on_conv.append([loc,self.output_locations.index(loc)+1,0])
                 self.O_states[self.output_locations.index(loc)+1] -=1
-                print("Order carrier outputted at {}".format(loc))
-                print("Items on conveyor: ", self.items_on_conv)
+                logging.debug("Order carrier outputted at {}".format(loc))
+                logging.debug("Items on conveyor: {}".format(self.items_on_conv))
             else:
-                print('No order carrier output on output {} .'.format(loc))
+                logging.debug('No order carrier output on output {} .'.format(loc))
 
     def make_observation(self):
         '''Builds the observation from the available variables'''
@@ -352,21 +360,21 @@ class simple_conveyor():
     def step(self, action):
         if action==0:
             self.step_env()
-            print("- - action 0 executed")
-            print("Divert locations :", self.diverter_locations)
-            print('states of Divert points = {}'.format(self.D_states))
+            logging.debug("- - action 0 executed")
+            logging.debug("Divert locations :{}".format(self.diverter_locations))
+            logging.debug('states of Divert points = {}'.format(self.D_states))
         elif action ==1: 
             self.O_states[1] +=1
             self.step_env()
-            print("- - action 1 executed")
+            logging.debug("- - action 1 executed")
         elif action ==2:
             self.O_states[2] +=1
             self.step_env()
-            print("- - action 2 executed")
+            logging.debug("- - action 2 executed")
         elif action ==3:
             self.O_states[3] +=1
             self.step_env()
-            print("- - action 3 executed")
+            logging.debug("- - action 3 executed")
         elif action ==4:
             self.O_states[4] +=1
             self.step_env()
@@ -377,16 +385,17 @@ class simple_conveyor():
             self.O_states[6] +=1
             self.step_env()
 
-        print("states of O: ",self.O_states)
-        print('init queues :', self.init_queues)
-        print('conveyor memory : ', self.items_on_conv)
-        print('')
-        print('--------------------------------------------------------------------------------------------------------------------')
+        logging.debug("states of O: {}".format(self.O_states))
+        logging.debug("init queues :{}".format(self.init_queues))
+        logging.debug("conveyor memory : {}".format( self.items_on_conv))
+        logging.debug('')
+        logging.debug('--------------------------------------------------------------------------------------------------------------------')
 
         next_state = self.make_observation()
         reward = self.reward
         terminate = self.terminate
         info = ''
+        logging.info('Reward is: {}'.format(self.reward))
         return next_state, reward, terminate, info
 
    
@@ -442,7 +451,7 @@ for index in range(len(env.queues[0])):
 
 #flat_list = [item for sublist in l for item in sublist]
 order_list = [item for sublist in order_list for item in sublist]
-print("Resulting in sequence of actions: ", order_list)
+logging.debug("Resulting in sequence of actions: {}".format(order_list))
 
 #run short trail:
 env.reset()
