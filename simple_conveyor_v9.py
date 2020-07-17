@@ -18,7 +18,7 @@ import random
 import logging
 
 #CHANGE LOGGING SETTINGS HERE: #INFO; showing all print statements
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 class simple_conveyor():
 
@@ -84,6 +84,7 @@ class simple_conveyor():
             self.W_times[i] = self.process_time_at_GTP + 150+8*self.amount_of_gtps + randint(-10, 10)
         logging.debug("Process times at operator are:{}".format(self.W_times))
 ####### FOR SIMULATION ONLY
+        self.condition_to_transfer = False
 
         #initialize conveyor memory
         self.items_on_conv = []        
@@ -204,18 +205,34 @@ class simple_conveyor():
     def process_at_GTP(self):
         # for each step; check if it needed to process an order carrier at GTP
         O_locs = copy(self.operator_locations)
-        for Transition_point in O_locs:
-            if self.W_times[O_locs.index(Transition_point)+1] == 0:
+        for Transition_point in O_locs:                                 #For all operator locations, check:
+
+            try:
+                if self.demand_queues[O_locs.index(Transition_point)][0] != self.in_queue[O_locs.index(Transition_point)][0]:
+                    self.condition_to_transfer = True
+            except:
+                self.condition_to_transfer = False
+
+            if self.W_times[O_locs.index(Transition_point)+1] == 0:     #if the waiting time is 0:
                 logging.debug('Waiting time at GTP {} is 0, check done on correctness:'.format(O_locs.index(Transition_point)+1))
                 if random.random() < self.exception_occurence: #if the random occurence is below exception occurence (set in config) do:
-                    #move order carrier at transition point to the merge lane
-                    logging.debug('not the right order carrier, move to merge lane')
+                    #remove an order carrier (broken)
+                    logging.debug('With a change percentage an order carrier is removed')
+                    logging.info('trasition point is: {}'.format(Transition_point))
+                    #self.update_queues(O_locs.index(Transition_point)+1, [item[1] for item in self.items_on_conv if item[0] == Transition_point][0])
+                    self.W_times[O_locs.index(Transition_point)+1] = 1
+                    #self.O_states[[item[1] for item in self.items_on_conv if item[0] == Transition_point][0]] +=1
+                    self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
+                
+                elif self.condition_to_transfer:
+                    #move order carrier back onto system via transfer - merge
                     for item  in self.items_on_conv:
                         if item[0] == Transition_point:
                             item[0][0] -=1
-                    
+                    self.W_times[O_locs.index(Transition_point)+1] = 1
+                    self.update_queues(O_locs.index(Transition_point)+1, self.in_queue[O_locs.index(Transition_point)][0])
                 else:
-                    #remove the order form the items_on_conv
+                    #Process an order at GTP successfully
                     logging.debug('right order carrier is at GTP (location: {}'.format(Transition_point))
                     logging.debug('conveyor memory before processing: {}'.format(self.items_on_conv))
                     self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
@@ -223,13 +240,21 @@ class simple_conveyor():
                     logging.debug('order at GTP {} processed'.format(O_locs.index(Transition_point)+1))
                     logging.debug('conveyor memory after processing: {}'.format(self.items_on_conv))
 
-                #set new timestep for the next order
-                try: 
-                    next_type = [item[1] for item in env.items_on_conv if item[0] == [12,14]][0]
-                except:
-                    next_type = 99
-                self.W_times[O_locs.index(Transition_point)+1] = self.process_time_at_GTP if next_type == 1 else self.process_time_at_GTP+18 if next_type == 2 else self.process_time_at_GTP+36 if next_type == 3 else self.process_time_at_GTP+51 if next_type == 4 else self.process_time_at_GTP+72
-                logging.debug('new timestep set')
+                    #when processed, remove order carrier from demand queue
+                    try:
+                        #remove from demand queue
+                        self.demand_queues[O_locs.index(Transition_point)] = self.demand_queues[O_locs.index(Transition_point)][1:]
+                    except:
+                        logging.info("Except: Demand queue for this lane is allready empty")
+
+                    #set new timestep for the next order
+                    try: 
+                        next_type = [item[1] for item in env.items_on_conv if item[0] == [12,14]][0]
+                    except:
+                        next_type = 99
+                    self.W_times[O_locs.index(Transition_point)+1] = self.process_time_at_GTP if next_type == 1 else self.process_time_at_GTP+18 if next_type == 2 else self.process_time_at_GTP+36 if next_type == 3 else self.process_time_at_GTP+51 if next_type == 4 else self.process_time_at_GTP+72
+                    logging.debug('new timestep set')
+
 
                 #remove from in_queue when W_times is 0
                 try:
@@ -310,22 +335,22 @@ class simple_conveyor():
                     logging.debug("Item of size {} not moved into lane: Divert value not set to true".format(item[1])) 
 
             #otherwise; all items set a step in their moving direction 
-            elif item[0][1] == 7 and item[0][0] > 1 and self.carrier_type_map[item[0][1]][item[0][0]-1] ==0: #if on the lower line, and not reached left corner:
+            elif item[0][1] == 7 and item[0][0] > 1 :#and self.carrier_type_map[item[0][1]][item[0][0]-1] ==0: #if on the lower line, and not reached left corner:
                 item[0][0] -=1                     #move left
                 logging.debug('item {} moved left'.format(item[0]))
-            elif item[0][0] ==1 and item[0][1] >2 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0: #if on left lane, and not reached top left corner:
+            elif item[0][0] ==1 and item[0][1] >2 : #and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0: #if on left lane, and not reached top left corner:
                 item[0][1] -=1
                 logging.debug('item {} moved up'.format(item[0]))                    #move up
-            elif item[0][1] == 2 and item[0][0] < self.empty_env.shape[1]-2 and self.carrier_type_map[item[0][1]][item[0][0]+1] ==0: #if on the top lane, and not reached right top corner:
+            elif item[0][1] == 2 and item[0][0] < self.empty_env.shape[1]-2 :#and self.carrier_type_map[item[0][1]][item[0][0]+1] ==0: #if on the top lane, and not reached right top corner:
                 item[0][0] +=1                      #Move right
                 logging.debug('item {} moved right'.format(item[0]))
-            elif item[0][0] == self.empty_env.shape[1]-2 and item[0][1] <7 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #if on right lane, and not reached right down corner:
+            elif item[0][0] == self.empty_env.shape[1]-2 and item[0][1] <7 : #and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #if on right lane, and not reached right down corner:
                 item[0][1] +=1
                 logging.debug('item {} moved down'.format(item[0]))
             elif item[0][1] > 7 and item[0][0] in [lane[0] for lane in self.diverter_locations] and item[0][1] < self.empty_env.shape[0]-1 and item[0][0] < self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]+1][item[0][0]] ==0: #move down into lane
                 item[0][1] +=1
                 logging.debug('item {} moved into lane'.format(item[0]))
-            elif item[0][1] > 7 and item[0][0] in [lane[0] for lane in self.merge_locations] and item[0][0] < self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]-1][item[0][0]+1] ==0: #move up into merge lane
+            elif item[0][1] > 7 and item[0][0] in [lane[0] for lane in self.merge_locations] and item[0][0] < self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0 and self.carrier_type_map[item[0][1]-1][item[0][0]+1] ==0: #move up into merge lane
                 item[0][1] -=1
             elif item[0][1] > 7 and item[0][0] > self.amount_of_gtps*4+3 and self.carrier_type_map[item[0][1]-1][item[0][0]] ==0: #move up if on output lane
                 item[0][1] -=1
@@ -386,8 +411,15 @@ class simple_conveyor():
             self.step_env()
 
         logging.debug("states of O: {}".format(self.O_states))
-        logging.debug("init queues :{}".format(self.init_queues))
-        logging.debug("conveyor memory : {}".format( self.items_on_conv))
+        logging.info("init queues :{}".format(self.init_queues))
+        logging.info('amount of items in init queues: {}'.format(sum([len(item) for item in self.init_queues])))
+        logging.info("conveyor memory : {}".format( self.items_on_conv))
+        logging.info('Amount of items on conv: {}'.format(len(self.items_on_conv)))
+        logging.info('Demand queue : {}'.format(self.demand_queues))
+        logging.info('amount of demand still needing processing: {}'.format(sum([len(item) for item in self.demand_queues])))
+        logging.info('In queue : {}'.format(self.in_queue))
+        logging.info('In queue items : {} '.format(sum([len(item) for item in self.in_queue])))
+        logging.info('In queue according to convmap : {}'.format(len([item for item in self.items_on_conv if item[0][1] > 7])))
         logging.debug('')
         logging.debug('--------------------------------------------------------------------------------------------------------------------')
 
@@ -429,14 +461,14 @@ class simple_conveyor():
         im = Image.fromarray(np.uint8(image))
         img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.1", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
-        cv2.waitKey(25)
+        cv2.waitKey(0)
     
 
 ############### MAIN ##############################################################################################################################################
 
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 15
+amount_gtp = 10
 amount_output = 3
 buffer_size = 10
 queues = [[randint(1,amount_output) for i in range(buffer_size)] for item in range(amount_gtp)] # generate random queues
@@ -460,9 +492,9 @@ for item in order_list:
     env.step(item)
     env.render()
     env.step(0)
-
+    env.render()
 
     
-while env.in_queue != [[] * i for i in range(amount_gtp)]:
+while env.demand_queues != [[] * i for i in range(amount_gtp)]:
     env.step(0)
     env.render()
