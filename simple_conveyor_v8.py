@@ -32,7 +32,7 @@ class simple_conveyor():
         self.amount_of_gtps = amount_gtp
         self.amount_of_outputs = amount_output
         self.exception_occurence = 0.05        # % of the times, an exception occurs
-        self.process_time_at_GTP = 24          # takes 30 timesteps
+        self.process_time_at_GTP = 6          # takes 30 timesteps
 
         self.reward = 0.0
         self.terminate = False
@@ -212,18 +212,18 @@ class simple_conveyor():
                 else:
                     #remove the order form the items_on_conv
                     print('right order carrier is at GTP (location: {}'.format(Transition_point))
-                    print('conveyor memory before processing: ', self.items_on_conv)
+                    #print('conveyor memory before processing: ', self.items_on_conv)
                     self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
                     print('order at GTP {} processed'.format(O_locs.index(Transition_point)+1))
-                    print('conveyor memory after processing: ', self.items_on_conv)
+                    #print('conveyor memory after processing: ', self.items_on_conv)
 
                 #set new timestep for the next order
                 try: 
                     next_type = [item[1] for item in env.items_on_conv if item[0] == [12,14]][0]
                 except:
                     next_type = 99
-                self.W_times[O_locs.index(Transition_point)+1] = self.process_time_at_GTP if next_type == 1 else self.process_time_at_GTP+18 if next_type == 2 else self.process_time_at_GTP+36 if next_type == 3 else self.process_time_at_GTP+51 if next_type == 4 else self.process_time_at_GTP+72
-                print('new timestep set')
+                self.W_times[O_locs.index(Transition_point)+1] = self.process_time_at_GTP if next_type == 1 else self.process_time_at_GTP+30 if next_type == 2 else self.process_time_at_GTP+60 if next_type == 3 else self.process_time_at_GTP+60 if next_type == 4 else self.process_time_at_GTP+60
+                print('new timestep set at GTP {} : {}'.format(O_locs.index(Transition_point)+1, self.W_times[O_locs.index(Transition_point)+1]))
 
                 #remove from in_queue when W_times is 0
                 try:
@@ -420,7 +420,7 @@ class simple_conveyor():
         im = Image.fromarray(np.uint8(image))
         img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.1", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
-        cv2.waitKey(25)
+        cv2.waitKey(0)
     
 
 ############### MAIN ##############################################################################################################################################

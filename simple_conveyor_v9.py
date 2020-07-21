@@ -18,7 +18,7 @@ import random
 import logging
 
 #CHANGE LOGGING SETTINGS HERE: #INFO; showing all print statements
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class simple_conveyor():
 
@@ -37,7 +37,7 @@ class simple_conveyor():
         self.amount_of_gtps = amount_gtp
         self.amount_of_outputs = amount_output
         self.exception_occurence = 0.05        # % of the times, an exception occurs
-        self.process_time_at_GTP = 24          # takes 30 timesteps
+        self.process_time_at_GTP = 6          # takes 30 timesteps
 
         self.reward = 0.0
         self.terminate = False
@@ -81,10 +81,11 @@ class simple_conveyor():
 ####### FOR SIMULATION ONLY 
         self.W_times = {}
         for i in range(1,len(self.operator_locations)+1):
-            self.W_times[i] = self.process_time_at_GTP + 150+8*self.amount_of_gtps + randint(-10, 10)
+            self.W_times[i] = self.process_time_at_GTP + 120+8*self.amount_of_gtps + randint(-10, 10)
         logging.debug("Process times at operator are:{}".format(self.W_times))
 ####### FOR SIMULATION ONLY
         self.condition_to_transfer = False
+        self.condition_to_process = False
 
         #initialize conveyor memory
         self.items_on_conv = []        
@@ -210,8 +211,11 @@ class simple_conveyor():
             try:
                 if self.demand_queues[O_locs.index(Transition_point)][0] != self.in_queue[O_locs.index(Transition_point)][0]:
                     self.condition_to_transfer = True
+                elif self.demand_queues[O_locs.index(Transition_point)][0] == self.in_queue[O_locs.index(Transition_point)][0]:
+                    self.condition_to_process = True
             except:
                 self.condition_to_transfer = False
+                self.condition_to_process = False
 
             if self.W_times[O_locs.index(Transition_point)+1] == 0:     #if the waiting time is 0:
                 logging.debug('Waiting time at GTP {} is 0, check done on correctness:'.format(O_locs.index(Transition_point)+1))
@@ -231,12 +235,15 @@ class simple_conveyor():
                             item[0][0] -=1
                     self.W_times[O_locs.index(Transition_point)+1] = 1
                     self.update_queues(O_locs.index(Transition_point)+1, self.in_queue[O_locs.index(Transition_point)][0])
-                else:
+                elif self.condition_to_process:
                     #Process an order at GTP successfully
+                    logging.info('Demand queues : {}'.format(self.demand_queues))
+                    logging.info('In queue : {}'.format(self.in_queue))
+                    logging.info('items on conveyor : {}'.format(self.items_on_conv))
                     logging.debug('right order carrier is at GTP (location: {}'.format(Transition_point))
                     logging.debug('conveyor memory before processing: {}'.format(self.items_on_conv))
                     self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
-                    self.reward += 10 + 10 + (self.amount_of_gtps * 4)/2
+                    self.reward += 10 + 10 + (self.amount_of_gtps * 4)
                     logging.debug('order at GTP {} processed'.format(O_locs.index(Transition_point)+1))
                     logging.debug('conveyor memory after processing: {}'.format(self.items_on_conv))
 
@@ -249,12 +256,14 @@ class simple_conveyor():
 
                     #set new timestep for the next order
                     try: 
-                        next_type = [item[1] for item in env.items_on_conv if item[0] == [12,14]][0]
+                        next_type = [item[1] for item in env.items_on_conv if item[0] == [Transition_point[0], Transition_point[1]-1]][0]
+
                     except:
                         next_type = 99
-                    self.W_times[O_locs.index(Transition_point)+1] = self.process_time_at_GTP if next_type == 1 else self.process_time_at_GTP+18 if next_type == 2 else self.process_time_at_GTP+36 if next_type == 3 else self.process_time_at_GTP+51 if next_type == 4 else self.process_time_at_GTP+72
-                    logging.debug('new timestep set')
-
+                    self.W_times[O_locs.index(Transition_point)+1] = self.process_time_at_GTP if next_type == 1 else self.process_time_at_GTP+30 if next_type == 2 else self.process_time_at_GTP+60 if next_type == 3 else self.process_time_at_GTP+60 if next_type == 4 else self.process_time_at_GTP+60
+                    logging.debug('new timestep set at GTP {} : {}'.format(O_locs.index(Transition_point)+1, self.W_times[O_locs.index(Transition_point)+1]))
+                else:
+                    logging.info('Else statement activated')
 
                 #remove from in_queue when W_times is 0
                 try:
@@ -297,7 +306,7 @@ class simple_conveyor():
                 #Condition 1 = if the carrier type at any of the diverter locations is EQUAL TO the next-up requested carrier type at GTP request lane of this specific diverter location
                 condition_1 = carrier_map[loc2[1]][loc2[0]] == self.init_queues[d_locs.index(loc2)][0]
                 #condition 2 = if the lenght of the in_queue is <= smallest queue that also demands order carrier of the same type
-                condition_2 = len(self.in_queue[d_locs.index(loc2)]) <= min(map(len, self.in_queue)) 
+                condition_2 = len(self.in_queue[d_locs.index(loc2)])-1 <= min(map(len, self.in_queue)) 
                 if condition_1 and condition_2: 
                     self.D_states[d_locs.index(loc2)+1] = True
                     logging.debug("set diverter state for diverter {} to TRUE".format(d_locs.index(loc2)+1))
@@ -411,15 +420,15 @@ class simple_conveyor():
             self.step_env()
 
         logging.debug("states of O: {}".format(self.O_states))
-        logging.info("init queues :{}".format(self.init_queues))
-        logging.info('amount of items in init queues: {}'.format(sum([len(item) for item in self.init_queues])))
-        logging.info("conveyor memory : {}".format( self.items_on_conv))
-        logging.info('Amount of items on conv: {}'.format(len(self.items_on_conv)))
-        logging.info('Demand queue : {}'.format(self.demand_queues))
+        logging.debug("init queues :{}".format(self.init_queues))
+        logging.debug('amount of items in init queues: {}'.format(sum([len(item) for item in self.init_queues])))
+        logging.debug("conveyor memory : {}".format( self.items_on_conv))
+        logging.debug('Amount of items on conv: {}'.format(len(self.items_on_conv)))
+        logging.debug('Demand queue : {}'.format(self.demand_queues))
         logging.info('amount of demand still needing processing: {}'.format(sum([len(item) for item in self.demand_queues])))
-        logging.info('In queue : {}'.format(self.in_queue))
-        logging.info('In queue items : {} '.format(sum([len(item) for item in self.in_queue])))
-        logging.info('In queue according to convmap : {}'.format(len([item for item in self.items_on_conv if item[0][1] > 7])))
+        logging.debug('In queue : {}'.format(self.in_queue))
+        logging.debug('In queue items : {} '.format(sum([len(item) for item in self.in_queue])))
+        logging.debug('In queue according to convmap : {}'.format(len([item for item in self.items_on_conv if item[0][1] > 7])))
         logging.debug('')
         logging.debug('--------------------------------------------------------------------------------------------------------------------')
 
@@ -427,7 +436,7 @@ class simple_conveyor():
         reward = self.reward
         terminate = self.terminate
         info = ''
-        logging.info('Reward is: {}'.format(self.reward))
+        logging.debug('Reward is: {}'.format(self.reward))
         return next_state, reward, terminate, info
 
    
@@ -460,7 +469,7 @@ class simple_conveyor():
         #resize with PIL
         im = Image.fromarray(np.uint8(image))
         img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
-        cv2.imshow("Simulation-v0.1", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
+        cv2.imshow("Simulation-v0.9", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
         cv2.waitKey(0)
     
 
@@ -468,10 +477,10 @@ class simple_conveyor():
 
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 10
+amount_gtp = 5
 amount_output = 3
 buffer_size = 10
-queues = [[randint(1,amount_output) for i in range(buffer_size)] for item in range(amount_gtp)] # generate random queues
+queues = [random.choices(np.arange(1,amount_output+1), [0.15, 0.55, 0.30], k=buffer_size) for item in range(amount_gtp)] # generate random queues
 print(queues)
 env = simple_conveyor(queues, amount_gtp, amount_output)
 env.reset()
