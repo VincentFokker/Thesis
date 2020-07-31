@@ -8,7 +8,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import cv2
 from matplotlib.colors import ColorConverter
 from copy import copy
@@ -40,6 +40,7 @@ class simple_conveyor():
         self.process_time_at_GTP = 6          # takes 30 timesteps
 
         self.reward = 0.0
+        self.total_travel = 0.0
         self.terminate = False
 
         #colors
@@ -63,6 +64,16 @@ class simple_conveyor():
         for i in range(1,len(self.diverter_locations)+1):
             self.D_states[i] = False
         
+        #D conditions
+        self.D_condition_1 = {}
+        for i in range(1,len(self.diverter_locations)+1):
+            self.D_condition_1[i] = False
+
+        self.D_condition_2 = {}
+        for i in range(1,len(self.diverter_locations)+1):
+            self.D_condition_2[i] = False
+    
+
         #initialize output points
         self.O_states = {}
         for i in range(1,len(self.output_locations)+1):
@@ -116,10 +127,10 @@ class simple_conveyor():
         for i in range(empty.shape[1]-no_of_output*2-1,empty.shape[1]-2,2):       #output points
             empty[7][i] = (255, 242, 229)
         
-        for i in range(8,empty.shape[0],1):                                     #order carriers available in lanes
-            for j in range(empty.shape[1]-no_of_output*2-1,empty.shape[1]-2,2):
-                x= empty.shape[1]-no_of_output*2-1
-                empty[i][j] = self.pallette[int((j-x)*0.5)]
+        # for i in range(8,empty.shape[0],1):                                     #order carriers available in lanes
+        #     for j in range(empty.shape[1]-no_of_output*2-1,empty.shape[1]-2,2):
+        #         x= empty.shape[1]-no_of_output*2-1
+        #         empty[i][j] = self.pallette[int((j-x)*0.5)]
 
         return empty
 
@@ -192,6 +203,8 @@ class simple_conveyor():
 
         #empty amount of items on conv.
         self.items_on_conv = []
+        self.reward = 0.0
+        self.total_travel = 0.0
         
         
         self.init_queues = self.queues
@@ -219,16 +232,16 @@ class simple_conveyor():
 
             if self.W_times[O_locs.index(Transition_point)+1] == 0:     #if the waiting time is 0:
                 logging.debug('Waiting time at GTP {} is 0, check done on correctness:'.format(O_locs.index(Transition_point)+1))
-                if random.random() < self.exception_occurence: #if the random occurence is below exception occurence (set in config) do:
-                    #remove an order carrier (broken)
-                    logging.debug('With a change percentage an order carrier is removed')
-                    logging.info('trasition point is: {}'.format(Transition_point))
-                    #self.update_queues(O_locs.index(Transition_point)+1, [item[1] for item in self.items_on_conv if item[0] == Transition_point][0])
-                    self.W_times[O_locs.index(Transition_point)+1] = 1
-                    #self.O_states[[item[1] for item in self.items_on_conv if item[0] == Transition_point][0]] +=1
-                    self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
+                # if random.random() < self.exception_occurence: #if the random occurence is below exception occurence (set in config) do:
+                #     #remove an order carrier (broken)
+                #     logging.debug('With a change percentage an order carrier is removed')
+                #     logging.info('trasition point is: {}'.format(Transition_point))
+                #     #self.update_queues(O_locs.index(Transition_point)+1, [item[1] for item in self.items_on_conv if item[0] == Transition_point][0])
+                #     self.W_times[O_locs.index(Transition_point)+1] = 1
+                #     #self.O_states[[item[1] for item in self.items_on_conv if item[0] == Transition_point][0]] +=1
+                #     self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
                 
-                elif self.condition_to_transfer:
+                if self.condition_to_transfer:
                     #move order carrier back onto system via transfer - merge
                     for item  in self.items_on_conv:
                         if item[0] == Transition_point:
@@ -243,7 +256,8 @@ class simple_conveyor():
                     logging.debug('right order carrier is at GTP (location: {}'.format(Transition_point))
                     logging.debug('conveyor memory before processing: {}'.format(self.items_on_conv))
                     self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
-                    self.reward += 10 + 10 + (self.amount_of_gtps * 4)
+                    self.reward += 10 + 10 + (O_locs.index(Transition_point)+1 * 4)
+                    self.total_travel += 10 + 10 + (O_locs.index(Transition_point)+1 * 4)
                     logging.debug('order at GTP {} processed'.format(O_locs.index(Transition_point)+1))
                     logging.debug('conveyor memory after processing: {}'.format(self.items_on_conv))
 
@@ -305,8 +319,17 @@ class simple_conveyor():
             try:
                 #Condition 1 = if the carrier type at any of the diverter locations is EQUAL TO the next-up requested carrier type at GTP request lane of this specific diverter location
                 condition_1 = carrier_map[loc2[1]][loc2[0]] == self.init_queues[d_locs.index(loc2)][0]
+                if condition_1 == True:
+                    self.D_condition_1[d_locs.index(loc2)+1] = True
+                else:
+                    self.D_condition_1[d_locs.index(loc2)+1] = False
                 #condition 2 = if the lenght of the in_queue is <= smallest queue that also demands order carrier of the same type
-                condition_2 = len(self.in_queue[d_locs.index(loc2)])-1 <= min(map(len, self.in_queue)) 
+                condition_2 = len(self.in_queue[d_locs.index(loc2)])-1 <= min(map(len, self.in_queue))
+                if condition_2 == True:
+                    self.D_condition_2[d_locs.index(loc2)+1] = True
+                else:
+                    self.D_condition_2[d_locs.index(loc2)+1] = False
+
                 if condition_1 and condition_2: 
                     self.D_states[d_locs.index(loc2)+1] = True
                     logging.debug("set diverter state for diverter {} to TRUE".format(d_locs.index(loc2)+1))
@@ -425,7 +448,7 @@ class simple_conveyor():
         logging.debug("conveyor memory : {}".format( self.items_on_conv))
         logging.debug('Amount of items on conv: {}'.format(len(self.items_on_conv)))
         logging.debug('Demand queue : {}'.format(self.demand_queues))
-        logging.info('amount of demand still needing processing: {}'.format(sum([len(item) for item in self.demand_queues])))
+        logging.debug('amount of demand still needing processing: {}'.format(sum([len(item) for item in self.demand_queues])))
         logging.debug('In queue : {}'.format(self.in_queue))
         logging.debug('In queue items : {} '.format(sum([len(item) for item in self.in_queue])))
         logging.debug('In queue according to convmap : {}'.format(len([item for item in self.items_on_conv if item[0][1] > 7])))
@@ -459,8 +482,9 @@ class simple_conveyor():
         plt.show()
     
 
-    def render(self):
+    def render1(self):
         """render with opencv, for faster processing"""
+        resize_factor = 35
         image = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
 
         for item in self.items_on_conv:
@@ -468,10 +492,93 @@ class simple_conveyor():
 
         #resize with PIL
         im = Image.fromarray(np.uint8(image))
-        img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
+        img = im.resize((image.shape[1]*resize_factor,image.shape[0]*resize_factor), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.9", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
         cv2.waitKey(0)
-    
+
+    def render(self):
+        """render with opencv, for faster processing"""
+        resize_factor = 36
+        box_diameter = 30
+        image = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
+        im = Image.fromarray(np.uint8(image))
+        img = im.resize((image.shape[1]*resize_factor,image.shape[0]*resize_factor), resample=Image.BOX) #BOX for no anti-aliasing)
+        draw = ImageDraw.Draw(img)
+
+        for i in range(7):
+            for item in copy(self.output_locations):
+                x0 = item[0] * resize_factor + 3
+                y0 = item[1] * resize_factor + 40 + 3 + i * 35
+                box_size = 20 if item ==self.output_locations[0] else 25 if item ==self.output_locations[1] else 30 if item ==self.output_locations[2] else 30
+                x1 = x0 + box_size
+                y1 = y0 + box_size
+                color = self.pallette[0] if item ==self.output_locations[0] else self.pallette[1] if item ==self.output_locations[1] else self.pallette[2] if item ==self.output_locations[2] else self.pallette[2]
+                draw.rectangle([x0,y0,x1,y1], fill=tuple(color), outline='black')
+        
+        #Draw the order carriers
+        for item in self.items_on_conv:
+            size = box_diameter-10 if item[1]==1 else box_diameter-5 if item[1]==2 else box_diameter if item[1]==3 else box_diameter
+            x0 = item[0][0] * resize_factor +3
+            x1 = x0 + size
+            y0 = item[0][1] * resize_factor + 3
+            y1 = y0 + size
+            color = self.pallette[0] if item[1] ==1 else self.pallette[1] if item[1] ==2 else self.pallette[2] if item[1] ==3 else self.pallette[3]            
+            draw.rectangle([x0, y0, x1, y1], fill=tuple(color), outline='black')
+
+
+        #Draw demands
+        for item in copy(self.diverter_locations):
+            x0 = item[0] * resize_factor+ 40
+            y0 = item[1] * resize_factor+ 40
+            x1 = x0 + 30
+            y1 = y0 + 30
+            
+            try: next_up = self.init_queues[self.diverter_locations.index(item)][0]
+            except: next_up = '-'
+            color = self.pallette[0] if next_up ==1 else self.pallette[1] if next_up ==2 else self.pallette[2] if next_up ==3 else (225,225,225)
+            draw.ellipse([x0, y0, x1, y1], fill=tuple(color), outline=None)
+            draw.text((x0 + 10, y0 + 5), '{}'.format(next_up), fill= 'black', font=ImageFont.truetype(font='arial', size=20, index=0, encoding='unic', layout_engine=None))
+            draw.text((x0, y1+ 5), 'Demand \n Queue', font=ImageFont.truetype(font='arial', size=10, index=0, encoding='unic', layout_engine=None))
+
+            #draw demand conditions
+            x2, y2 = item[0] * resize_factor, item[1] * resize_factor- 12
+            x3, y3 = x2 + 10, y2 + 10
+            x4, y4 = x3 + 5, y2
+            x5, y5 = x4 + 10, y4 + 10
+            color1 = 'green' if self.D_condition_1[self.diverter_locations.index(item)+1] == True else 'red'
+            color2 = 'green' if self.D_condition_2[self.diverter_locations.index(item)+1] == True else 'red'
+            draw.ellipse([x2, y2, x3, y3], fill=color1, outline=None)
+            draw.ellipse([x4, y4, x5, y5], fill=color2, outline=None)
+
+            #init queues on top
+            x6, y6 = item[0] * resize_factor - 30, item[1] * resize_factor - 30
+            draw.text((x6 + 10, y6 + 5), '{}'.format(self.init_queues[self.diverter_locations.index(item)]), fill= 'white', font=ImageFont.truetype(font='arial', size=10, index=0, encoding='unic', layout_engine=None))
+            
+            #in_queue
+            # x7, y7 = x0 - 120, y1 + 50
+            # draw.text((x7, y7), '{}'.format(self.in_queue[self.diverter_locations.index(item)]), fill= 'red', font=ImageFont.truetype(font='arial', size=10, index=0, encoding='unic', layout_engine=None))
+
+        #Draw GTP demands
+        for item in copy(self.operator_locations):
+            x0 = item[0] * resize_factor +40
+            y0 = item[1] * resize_factor
+            x1 = x0 + 30
+            y1 = y0 + 30
+            
+            try: next_up = self.demand_queues[self.operator_locations.index(item)][0]
+            except: next_up = '-'
+            color = self.pallette[0] if next_up ==1 else self.pallette[1] if next_up ==2 else self.pallette[2] if next_up ==3 else (225,225,225)
+            draw.ellipse([x0, y0, x1, y1], fill=tuple(color), outline=None)
+            draw.text((x0 + 10, y0 + 5), '{}'.format(next_up), fill= 'black', font=ImageFont.truetype(font='arial', size=20, index=0, encoding='unic', layout_engine=None))
+            draw.text((x0, y0 -45), 'Demand \n at GtP', font=ImageFont.truetype(font='arial', size=10, index=0, encoding='unic', layout_engine=None))
+
+            #demand queues
+            draw.text((x0, y0 -15), '{}'.format(self.demand_queues[self.operator_locations.index(item)]), font=ImageFont.truetype(font='arial', size=10, index=0, encoding='unic', layout_engine=None))
+
+        #resize with PIL
+        #img = img.resize((1200,480), resample=Image.BOX)
+        cv2.imshow("Simulation-v0.9", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
+        cv2.waitKey(0)
 
 ############### MAIN ##############################################################################################################################################
 
@@ -479,7 +586,7 @@ class simple_conveyor():
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
 amount_gtp = 5
 amount_output = 3
-buffer_size = 10
+buffer_size = 5
 queues = [random.choices(np.arange(1,amount_output+1), [0.15, 0.55, 0.30], k=buffer_size) for item in range(amount_gtp)] # generate random queues
 print(queues)
 env = simple_conveyor(queues, amount_gtp, amount_output)
@@ -500,8 +607,7 @@ env.reset()
 for item in order_list:
     env.step(item)
     env.render()
-    env.step(0)
-    env.render()
+
 
     
 while env.demand_queues != [[] * i for i in range(amount_gtp)]:
