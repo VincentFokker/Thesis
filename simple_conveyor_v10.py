@@ -37,7 +37,7 @@ class simple_conveyor():
         #init config
         self.amount_of_gtps = amount_gtp
         self.amount_of_outputs = amount_output
-        self.exception_occurence = 0.00        # % of the times, an exception occurs
+        self.exception_occurence = 0.05        # % of the times, an exception occurs
         self.process_time_at_GTP = 6          # takes 30 timesteps
 
         self.reward = 0.0
@@ -588,41 +588,43 @@ class simple_conveyor():
 
 ############### MAIN ##############################################################################################################################################
 
-## Test the item
-#queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 5
-amount_output = 3
-buffer_size = 100
-queues = [random.choices(np.arange(1,amount_output+1), [0.15, 0.55, 0.30], k=buffer_size) for item in range(amount_gtp)] # generate random queues
-print(queues)
-env = simple_conveyor(queues, amount_gtp, amount_output)
-env.reset()
+def if __name__ == "__main__":
+    
+    ## Test the item
+    #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
+    amount_gtp = 5
+    amount_output = 3
+    buffer_size =10
+    queues = [random.choices(np.arange(1,amount_output+1), [0.15, 0.55, 0.30], k=buffer_size) for item in range(amount_gtp)] # generate random queues
+    print(queues)
+    env = simple_conveyor(queues, amount_gtp, amount_output)
+    env.reset()
 
-#Build action list according to FIFO and Round-Robin Policy
-order_list = []
-for index in range(len(env.queues[0])):
-    order_list.append([item[index] for item in env.queues])
+    #Build action list according to FIFO and Round-Robin Policy
+    order_list = []
+    for index in range(len(env.queues[0])):
+        order_list.append([item[index] for item in env.queues])
 
-#flat_list = [item for sublist in l for item in sublist]
-order_list = [item for sublist in order_list for item in sublist]
-logging.debug("Resulting in sequence of actions: {}".format(order_list))
+    #flat_list = [item for sublist in l for item in sublist]
+    order_list = [item for sublist in order_list for item in sublist]
+    logging.debug("Resulting in sequence of actions: {}".format(order_list))
 
-#run short trail:
-env.reset()
+    #run short trail:
+    env.reset()
 
-start = time.time()
+    start = time.time()
 
-# Use order list based on Round_robin 
-for item in order_list:
-    env.step(item)
-    env.render()
-  
-while env.demand_queues != [[] * i for i in range(amount_gtp)]:
-    env.step(0)
-    env.render()
+    # Use order list based on Round_robin 
+    for item in order_list:
+        env.step(item)
+        env.render()
+    
+    while env.demand_queues != [[] * i for i in range(amount_gtp)]:
+        env.step(0)
+        env.render()
 
 
-stop = time.time()
-print('running time: {}'.format(stop-start))
-print('reward: ', env.reward)
+    stop = time.time()
+    print('running time: {}'.format(stop-start))
+    print('reward: ', env.reward)
 
