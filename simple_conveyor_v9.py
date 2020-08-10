@@ -592,7 +592,7 @@ class simple_conveyor():
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
 amount_gtp = 5
 amount_output = 3
-buffer_size = 100
+buffer_size = 10
 queues = [random.choices(np.arange(1,amount_output+1), [0.15, 0.55, 0.30], k=buffer_size) for item in range(amount_gtp)] # generate random queues
 print(queues)
 env = simple_conveyor(queues, amount_gtp, amount_output)
