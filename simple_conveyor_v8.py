@@ -201,7 +201,7 @@ class simple_conveyor():
         O_locs = copy(self.operator_locations)
         for Transition_point in O_locs:
             if self.W_times[O_locs.index(Transition_point)+1] == 0:
-                print('Waiting time at GTP {} is 0, check done on correctness:'.format(O_locs.index(Transition_point)+1))
+                print('Processing time at GTP {} is 0, check done on correctness:'.format(O_locs.index(Transition_point)+1))
                 if random.random() < self.exception_occurence: #if the random occurence is below exception occurence (set in config) do:
                     #move order carrier at transition point to the merge lane
                     print('not the right order carrier, move to merge lane')
@@ -420,7 +420,7 @@ class simple_conveyor():
         im = Image.fromarray(np.uint8(image))
         img = im.resize((1200,480), resample=Image.BOX) #BOX for no anti-aliasing)
         cv2.imshow("Simulation-v0.1", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
-        cv2.waitKey(0)
+        cv2.waitKey(10)
     
 
 ############### MAIN ##############################################################################################################################################
@@ -428,7 +428,7 @@ class simple_conveyor():
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
 amount_gtp = 15
-amount_output = 3
+amount_output = 4
 buffer_size = 10
 queues = [[randint(1,amount_output) for i in range(buffer_size)] for item in range(amount_gtp)] # generate random queues
 print(queues)
