@@ -1,31 +1,32 @@
-import gym
-import numpy as np 
+from deap import base
+from deap import creator
+from deap import tools
+from simple_conveyor_v9 import simple_conveyor
 
-env = gym.make('CartPole-v0')
+demand = [[2, 3, 1, 2, 3, 2, 2, 1, 3, 2], [3, 3, 2, 2, 2, 2, 3, 2, 2, 2], [1, 1, 3, 2, 2, 1, 1, 1, 2, 2], [1, 3, 1, 3, 1, 2, 1, 3, 3, 2], [1, 2, 1, 2, 3, 1, 3, 1, 1, 1]]
+amount_gtp = 5
+env = simple_conveyor(demand, amount_gtp, 3)
 
-bestlenght = 0
-episode_lengths = []
 
-best_weights = np.zeros[4]
+#Build action list
+order_list = []
+for index in range(len(demand[0])):
+    order_list.append([item[index] for item in env.queues])
+print(order_list)
 
-for i in range(100):
-    new_weights = np.random.uniform(-1.0, 1.0, 4)
+def evaluate(individual):
+    for item in individual:
+        env.step(item)
 
-    length = []
+        while env.demand_queues != [[] * i for i in range(amount_gtp)]:
+        env.step(0)
+    return env.total_travel
 
-    for j in range (100):
-        observation = env.reset()
-        done = False
-        cnt = 0
+creator.create('FitnessMin', base.Fitness, weights=(-1.0,))
+creator.create('Individual', list, fitness=creator.FitnessMin)
 
-while not done:
-    #env.render()
+toolbox = base.Toolbox()
 
-    cnt += 1
-    action = env.action_space.sample()
+toolbox.register("evaluate", evaluate)
 
-    observation, reward, done, _ = env.step(action)
 
-    if done:
-        break
-print('game lasted', cnt, 'moves')

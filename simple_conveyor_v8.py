@@ -35,6 +35,7 @@ class simple_conveyor():
         self.process_time_at_GTP = 6          # takes 30 timesteps
 
         self.reward = 0.0
+        self.total_travel = 0.0
         self.terminate = False
 
         #colors
@@ -185,7 +186,8 @@ class simple_conveyor():
 
         #empty amount of items on conv.
         self.items_on_conv = []
-        
+        self.reward = 0.0
+        self.total_travel = 0.0
         
         self.init_queues = self.queues
         self.demand_queues = copy(self.queues)
@@ -215,6 +217,8 @@ class simple_conveyor():
                     #print('conveyor memory before processing: ', self.items_on_conv)
                     self.items_on_conv = [item for item in self.items_on_conv if item[0] !=Transition_point]
                     print('order at GTP {} processed'.format(O_locs.index(Transition_point)+1))
+                    self.reward += 10 + 10 + (O_locs.index(Transition_point)+1 * 4)
+                    self.total_travel += 10 + 10 + (O_locs.index(Transition_point)+1 * 4)
                     #print('conveyor memory after processing: ', self.items_on_conv)
 
                 #set new timestep for the next order
@@ -427,8 +431,8 @@ class simple_conveyor():
 
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 15
-amount_output = 4
+amount_gtp = 5
+amount_output = 3
 buffer_size = 10
 queues = [[randint(1,amount_output) for i in range(buffer_size)] for item in range(amount_gtp)] # generate random queues
 print(queues)
