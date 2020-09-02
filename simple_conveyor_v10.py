@@ -584,13 +584,13 @@ class simple_conveyor():
         #resize with PIL
         #img = img.resize((1200,480), resample=Image.BOX)
         cv2.imshow("Simulation-v0.9", cv2.cvtColor(np.array(img), cv2.COLOR_BGR2RGB))
-        cv2.waitKey(10)
+        cv2.waitKey(0)
 
 ############### MAIN ##############################################################################################################################################
 
 ## Test the item
 #queues = [[1,2,3,2,3], [2,3,1,3,1], [1,3,2,1,2], [1,3,2,1,2], [1,3,2,1,2]] #sample queues for format WHERE 1=S, 2=M, 3=L
-amount_gtp = 5
+amount_gtp = 3
 amount_output = 3
 buffer_size = 10   
 queues = [random.choices(np.arange(1,amount_output+1), [0.15, 0.55, 0.30], k=buffer_size) for item in range(amount_gtp)] # generate random queues
