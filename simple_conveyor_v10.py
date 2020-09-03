@@ -49,6 +49,7 @@ class simple_conveyor():
 
         # build env
         self.empty_env = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
+        self.image = []
 
         #define where the operators, diverts and outputs of the GTP stations are
         self.operator_locations = [[i, self.empty_env.shape[0]-1] for i in range(4,self.amount_of_gtps*4+1,4)][::-1]
@@ -302,10 +303,10 @@ class simple_conveyor():
     def step_env(self):
 
 ####make carrier type map
-        self.carrier_type_map = np.zeros((self.empty_env.shape[0],self.empty_env.shape[1],1)).astype(int)
+        self.carrier_type_map = np.zeros((self.empty_env.shape[0],self.empty_env.shape[1],1)).astype(float)
         for item in self.items_on_conv:
             self.carrier_type_map[item[0][1]][item[0][0]] = item[1]
-            item[2] +=1
+            item[2] += 0.005                                                          #increase the time in the system
         
         self.reward -= len(self.items_on_conv)
 
@@ -403,6 +404,7 @@ class simple_conveyor():
                 logging.debug("Items on conveyor: {}".format(self.items_on_conv))
             else:
                 logging.debug('No order carrier output on output {} .'.format(loc))
+    
 
     def make_observation(self):
         '''Builds the observation from the available variables'''
@@ -411,12 +413,29 @@ class simple_conveyor():
             in_queue.append(item + [0]*(10-len(item)))
         in_queue = np.array(in_queue).flatten()
         demand_que = np.array([item[:10] for item in self.demand_queues]).flatten()
-        carrier_type_map_obs = np.zeros((self.empty_env.shape[0],self.empty_env.shape[1],2)).astype(int)
+        carrier_type_map_obs = np.zeros((self.empty_env.shape[0],self.empty_env.shape[1],2)).astype(float)
         for item in self.items_on_conv:
             carrier_type_map_obs[item[0][1]][item[0][0]][0] = item[1]
             carrier_type_map_obs[item[0][1]][item[0][0]][1] = item[2]
+        #cut padding
+        carrier_type_map_obs = carrier_type_map_obs[2:8, 1:-1]
+        #row 0 and -1 (top and bottom)
+        conv_top_bottom = np.append(carrier_type_map_obs[0], carrier_type_map_obs[-1])
+        #left and right lane
+        conv_left_right = np.append(carrier_type_map_obs[1:-1][:,0], carrier_type_map_obs[1:-1][:,-1])
+        #together
+        #carrier_type_map_obs = np.append(conv_top_bottom, conv_left_right)
+        carrier_type_map_obs = np.append(carrier_type_map_obs[0], carrier_type_map_obs[1:-1][:,-1])  
+        init = []
+        for item in self.init_queues:
+            init1 = item[:10]
+            init.append(init1 + [0]*(10-len(init1)))
+        init = list(np.array(init).flatten())
+        #binary encoding of the categorical variables
+        init = np.array([[0,0] if item==0 else [0,1] if item==1 else [1,0] if item ==2 else [1,1] for item in init]).flatten()
+        
         obs_queues = np.append(in_queue, demand_que)
-        obs = np.append(obs_queues, carrier_type_map_obs.flatten())
+        obs = np.append(np.array(init).flatten(), carrier_type_map_obs) #can also add: obs_queues
         return obs
 
     def step(self, action):
@@ -462,6 +481,12 @@ class simple_conveyor():
 
         next_state = self.make_observation()
         reward = self.reward
+        try:
+            if max([item[2] for item in self.items_on_conv]) >= 1:
+                self.terminate = True
+        except:
+            self.terminate = False
+            
         terminate = self.terminate
         info = ''
         logging.debug('Reward is: {}'.format(self.reward))
@@ -479,11 +504,11 @@ class simple_conveyor():
         for queue in self.init_queues:
             print('Queue GTP{}: {}'.format(self.init_queues.index(queue), queue))
 
-        image = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
+        self.image = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
 
         for item in self.items_on_conv:
-            image[item[0][1]][item[0][0]] = np.asarray([self.pallette[0] if item[1] ==1 else self.pallette[1] if item[1] ==2 else self.pallette[2] if item[1] ==2 else self.pallette[3]]) 
-        plt.imshow(np.asarray(image))
+            self.image[item[0][1]][item[0][0]] = np.asarray([self.pallette[0] if item[1] ==1 else self.pallette[1] if item[1] ==2 else self.pallette[2] if item[1] ==2 else self.pallette[3]]) 
+        plt.imshow(np.asarray(self.image))
         plt.show()
     
 
@@ -505,9 +530,9 @@ class simple_conveyor():
         """render with opencv, for faster processing"""
         resize_factor = 36
         box_diameter = 30
-        image = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
-        im = Image.fromarray(np.uint8(image))
-        img = im.resize((image.shape[1]*resize_factor,image.shape[0]*resize_factor), resample=Image.BOX) #BOX for no anti-aliasing)
+        self.image = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
+        im = Image.fromarray(np.uint8(self.image))
+        img = im.resize((self.image.shape[1]*resize_factor,self.image.shape[0]*resize_factor), resample=Image.BOX) #BOX for no anti-aliasing)
         draw = ImageDraw.Draw(img)
 
         for i in range(7):

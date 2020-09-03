@@ -219,8 +219,6 @@ class simple_conveyor():
         self.empty_env = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
         self.carrier_type_map = np.zeros((self.empty_env.shape[0],self.empty_env.shape[1],1))
 
-        return self.make_observation()
-
 ########################################################################################################################################################
 ## PROCESSING OF ORDER CARRIERS AT GTP
 # 
@@ -430,20 +428,16 @@ class simple_conveyor():
         type_map_obs1 = self.carrier_type_map_obs1[2:8, 1:-1]
         #row 0 and -1 (top and bottom)
         conv_top_bottom = np.append(type_map_obs[0], type_map_obs[-1])
-        logging.debug('topbottom lenght = {}'.format(len(conv_top_bottom)))
         conv_top_bottom1 = np.append(type_map_obs1[0], type_map_obs1[-1])
         #left and right lane
         conv_left_right = np.append(type_map_obs[1:-1][:,0], type_map_obs[1:-1][:,-1])
         conv_left_right1 = np.append(type_map_obs1[1:-1][:,0], type_map_obs1[1:-1][:,-1])
-        logging.debug('leftright lenght = {}'.format(len(conv_left_right)))
         #together
         #carrier_type_map_obs = np.append(conv_top_bottom, conv_left_right)
         type_map_obs = np.append(type_map_obs[-1], type_map_obs[1:-1][:,-1])
         type_map_obs = np.array([self.encode(item) for item in list(type_map_obs)]).flatten()
         logging.debug(type_map_obs)
         type_map_obs1 = np.append(type_map_obs1[-1], type_map_obs1[1:-1][:,-1])
-        logging.debug('typemap lenght = {}'.format(len(type_map_obs)))
-        logging.debug('typemap1 lenght = {}'.format(len(type_map_obs1)))
         type_map_obs = np.append(type_map_obs, type_map_obs1)
         init = []
         for item in self.init_queues:
@@ -452,8 +446,7 @@ class simple_conveyor():
         init = list(np.array(init).flatten())
         #binary encoding of the categorical variables
         init = np.array([[0,0] if item==0 else [0,1] if item==1 else [1,0] if item ==2 else [1,1] for item in init]).flatten()
-        logging.debug('init lenght = {}'.format(len(init)))
-        logging.debug('typemap lenght = {}'.format(len(type_map_obs)))
+        
         obs_queues = np.append(in_queue, demand_que)
         obs = np.append(np.array(init).flatten(), type_map_obs) #can also add: obs_queues
         return obs
@@ -531,7 +524,7 @@ class simple_conveyor():
         self.image = self.generate_env(self.amount_of_gtps, self.amount_of_outputs)
 
         for item in self.items_on_conv:
-            self.image[item[0][1]][item[0][0]] = np.asarray([self.pallette[0] if item[1] ==1 else self.pallette[1] if item[1] ==2 else self.pallette[2] if item[1] ==3 else self.pallette[3]]) 
+            self.image[item[0][1]][item[0][0]] = np.asarray([self.pallette[0] if item[1] ==1 else self.pallette[1] if item[1] ==2 else self.pallette[2] if item[1] ==2 else self.pallette[3]]) 
         self.image = self.image / 255.0
         plt.imshow(np.asarray(self.image))
         plt.show()
