@@ -40,6 +40,7 @@ class simple_conveyor():
         self.exception_occurence = 0.00        # % of the times, an exception occurs
         self.process_time_at_GTP = 6          # takes 30 timesteps
 
+
         self.reward = 0.0
         self.total_travel = 0.0
         self.terminate = False
