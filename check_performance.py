@@ -11,9 +11,9 @@ import yaml, rl
 
 """
 Usage of this tester:
-    python test2.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -n [RUNNR]
+    python check_performance.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -n [RUNNR]
     e.g.
-    python test2.py -e TestEnv -s Test123 -n 0
+    python check_performance.py -e TestEnv -s Test123 -n 0
 
 """
 #CHANGE LOGGING SETTINGS HERE: #INFO; showing all print statements #DEBUG: show extra info

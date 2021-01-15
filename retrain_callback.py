@@ -17,9 +17,9 @@ import yaml
 
 """
 Usage of this trainer:
-    python retrain5.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -n [LOGNAME] -c [CONFIG] -t [TENSORBOARD]
+    python retrain_callback.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -n [LOGNAME] -c [CONFIG] -t [TENSORBOARD]
     e.g.
-    python retrain5.py -e TestEnv -s Test123 -n Test123 -c config1 -t 
+    python retrain_callback.py -e TestEnv -s Test123 -n Test123 -c config1 -t 
 
 """
 # CHANGE LOGGING SETTINGS HERE: #INFO; showing all print statements #DEBUG: show extra info

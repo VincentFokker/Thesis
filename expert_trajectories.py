@@ -13,6 +13,13 @@ from os.path import join
 from stable_baselines.common import make_vec_env
 from stable_baselines.common.callbacks import EvalCallback
 
+"""
+Usage of this script:
+    python expert_trajectories.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -c [CONFIG] -n [NUMEPISODES]
+    e.g.
+    python expert_trajectories.py -e TestEnv -s Test123 -c config1 -n 100
+
+"""
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -37,16 +44,27 @@ if __name__ == "__main__":
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
 
+    # make env object
     env_obj = getattr(rl.environments, args.environment)
     env = env_obj(config)
 
 
     def decode_binary(binary_array):
+        '''
+        Decodes a two digit binary string to the actual value.
+        params-in: string of binary values
+        params-out: real value
+        '''
         return [int("".join([str(n) for n in [int(l) for l in list(binary_array[i - 2:i])]]), 2) for i in
                 range(2, len(binary_array) + 2, 2)]
 
 
     def decode_action(order_type, goal):
+        """
+        Decodes an action from an action/goal set to an single action integer.
+        params-in: order type, goal
+        params-out: action
+        """
         return (order_type - 1) * env.amount_of_gtps + goal
 
 

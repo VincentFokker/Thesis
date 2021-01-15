@@ -19,10 +19,10 @@ import logging
 import yaml
 
 """
-Usage of this trainer:
-    python train2.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -n [LOGNAME] -c [CONFIG] -t [TENSORBOARD]
+Script to pretrain based on the dataset generated with expert_trajectories.py. Run with:
+    python pretrain.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -n [LOGNAME] -c [CONFIG] -t [TENSORBOARD] -r [RETRAIN]
     e.g.
-    python train2.py -e TestEnv -s Test123 -n Test123 -c config1 -t 
+    python pretrain.py -e TestEnv -s Test123 -n Test123 -c config1 -t -r
 
 """
 # CHANGE LOGGING SETTINGS HERE: #INFO; showing all print statements #DEBUG: show extra info

@@ -3,6 +3,15 @@ import pathlib
 import argparse
 from os.path import join
 
+"""
+Script to make a reward and loss plot for a specific result in the trained_models folder.
+Usage of this script:
+    python plotmaker.py -e [ENVIRONMENT_NAME] -s [SUBDIR]
+    e.g.
+    python plotmaker.py -e TestEnv -s Subdir
+
+"""
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--environment', type=str, help='Name of the environment.')

@@ -11,9 +11,9 @@ import yaml, rl
 
 """
 Usage of this tester:
-    python test2.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -n [RUNNR]
+    python test_all.py -e [ENVIRONMENT_NAME] -s [SUBDIR] -r -d
     e.g.
-    python test2.py -e TestEnv -s Test123 -n 0
+    python test_all.py -e TestEnv -s Test123 -r -d 
 
 """
 #CHANGE LOGGING SETTINGS HERE: #INFO; showing all print statements #DEBUG: show extra info

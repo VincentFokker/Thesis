@@ -1,4 +1,5 @@
 import numpy as np
+import argparse
 import pathlib
 from os.path import join, isfile
 from hyperspace import hyperdrive
@@ -11,11 +12,14 @@ import os
 import yaml
 import rl
 
-env_name = 'AbstractConveyor1'
+"""
+Script to run hyperparameter optimization on the reward weights.
+Usage of this script:
+    python hyperparameter.py -e [ENVIRONMENT_NAME]
+    e.g.
+    python hyperparameter.py -e TestEnv 
 
-
-path = pathlib.Path().absolute()
-
+"""
 
 def objective(params):
     """
@@ -28,7 +32,7 @@ def objective(params):
         - Controlled by hyperspaces's hyperdrive function.
         - Order preserved from list passed to hyperdrive's hyperparameters argument.
      """
-    config_path = join(path, 'rl', 'config', '{}.yml'.format(env_name))
+    config_path = join(path, 'rl', 'config', '{}.yml'.format(args.env_name))
     with open(config_path) as f:
         config = yaml.safe_load(f)
         print('model loaded from path: {}'.format(config_path))
@@ -54,7 +58,7 @@ negative_reward_for_cycle\t:\t{}\n'.format(prfd, wsag, fr, nria, nrfeq, nrfc))
     n_eval = (n_steps / 8)/10
     
     # load environment with config variables
-    env_obj = getattr(rl.environments, env_name)
+    env_obj = getattr(rl.environments, args.env_name)
     env = env_obj(config)
     
     # multiprocess environment
@@ -63,7 +67,7 @@ negative_reward_for_cycle\t:\t{}\n'.format(prfd, wsag, fr, nria, nrfeq, nrfc))
     #define folder and path
     now = datetime.datetime.now()
     folder ='{}{}{}_{}{}'.format(now.year, str(now.month).zfill(2), str(now.day).zfill(2), str(now.hour).zfill(2), str(now.minute).zfill(2))
-    specified_path = join(path, 'rl', 'trained_models', env_name, 'hyper-parameter', '{}-{}{}{}{}{}{}'.format(folder, prfd, wsag, fr, nria, nrfeq, nrfc))
+    specified_path = join(path, 'rl', 'trained_models', args.env_name, 'hyper-parameter', '{}-{}{}{}{}{}{}'.format(folder, prfd, wsag, fr, nria, nrfeq, nrfc))
     print('Results stored in: {}'.format(specified_path))
     
     # callback for evaluation
@@ -110,11 +114,11 @@ def main():
                (0, 20), #wrong_sup_at_goal
                (0, 20), #flooding_reward
                (0, 20), #neg_reward_ia
-               (0, 20), #negative_reward_for_empty_queue
+               (0, 20), #negative_reward_for_idle time
                (0, 20)] #negative_reward_for_cycle
     
     #define path for the results
-    hyperdive_results = join(path, 'rl', 'hyper_parameter', env_name)
+    hyperdive_results = join(path, 'rl', 'hyper_parameter', args.env_name)
     
     #make folder if not exist
     try:
@@ -132,5 +136,9 @@ def main():
                verbose=True,
                random_state=42)
 
-if __name__=='__main__':
-     main()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-e', '--env_name', type=str, help='Name of the environment.')
+    args = parser.parse_args()
+    path = pathlib.Path().absolute()
+    main()
