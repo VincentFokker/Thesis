@@ -1,4 +1,4 @@
-#Thesis Vanderlande
+# Thesis Vanderlande 
 This repository contains all the code necessary to reproduce the RL agent and the simulation used during training.
 
 To run, setup a virtual environment with:
