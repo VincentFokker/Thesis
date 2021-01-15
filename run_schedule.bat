@@ -1,16 +1,3 @@
-python train_on.py -e ConveyorEnv121 -s 20210113_0000 -n buffer1 -c buffer1
-python train_on.py -e ConveyorEnv121 -s 20210113_0030 -n buffer2 -c buffer2
-python train_on.py -e ConveyorEnv121 -s 20210113_0100 -n buffer3 -c buffer3
-python train_on.py -e ConveyorEnv121 -s 20210113_0130 -n buffer4 -c buffer4
-python train_on.py -e ConveyorEnv121 -s 20210113_0200 -n buffer5 -c buffer5
-python train_on.py -e ConveyorEnv121 -s 20210113_0230 -n buffer6 -c buffer6
-python train_on.py -e ConveyorEnv121 -s 20210113_0300 -n buffer7 -c buffer7
-python train_on.py -e ConveyorEnv121 -s 20210113_0330 -n buffer8 -c buffer8
-python train_on.py -e ConveyorEnv121 -s 20210113_0400 -n buffer9 -c buffer9
-python train_on.py -e ConveyorEnv121 -s 20210113_0430 -n buffer10 -c buffer10
-python plotcombiner_b.py -t terminate
-python resultmaker_b.py -t buffer -n 100
-
 python train_on.py -e ConveyorEnv121 -s 20210113_0500 -n pipe10 -c pipe10
 python train_on.py -e ConveyorEnv121 -s 20210113_0530 -n pipe15 -c pipe15
 python train_on.py -e ConveyorEnv121 -s 20210113_0600 -n pipe20 -c pipe20
