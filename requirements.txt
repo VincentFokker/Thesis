@@ -60,7 +60,7 @@ Pillow==7.2.0
 plotly==4.10.0
 prometheus-client==0.9.0
 prompt-toolkit==3.0.8
-protobuf==3.14.0
+protobuf==3.18.3
 pycparser==2.20
 pyglet==1.5.0
 Pygments==2.7.4
