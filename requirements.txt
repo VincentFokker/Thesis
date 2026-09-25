@@ -41,7 +41,7 @@ llvmlite==0.35.0
 Markdown==3.8.1
 MarkupSafe==1.1.1
 matplotlib==3.3.3
-mistune==3.3.0
+mistune==3.3.3
 mpi4py==3.0.3
 nbclient==0.5.1
 nbconvert==7.17.1
